@@ -10,6 +10,9 @@ const int bluePin         = 13;
 
 DHT dht(DHTPin, DHTType);
 
+const int lightThreshold = 4095;
+const int darkThreshold  = 3700;
+const int maxBrightness  = 100;
 const float coldThreshold  = 18.0;   // both in celcius
 const float hotThreshold   = 33.0;
 
@@ -33,25 +36,32 @@ void loop() {
   // put your main code here, to run repeatedly:
   float humidity       = dht.readHumidity();
   float temperature    = dht.readTemperature();
+  int   lightValue     = analogRead(lightSensorPin);
+
+  int brightness = map(lightValue, darkThreshold, lightThreshold, 0, maxBrightness);
+  brightness = constrain(brightness, 0, maxBrightness);
 
   int redPWM   = 0;
   int greenPWM = 0;
   int bluePWM  = 0;
 
   if (temperature < coldThreshold) {
-    bluePWM = 100;
+    bluePWM = brightness;
   }
   else if (temperature > hotThreshold) {
-    redPWM   = 100;
-    greenPWM = 100 * 0.45;
+    redPWM   = brightness;
+    greenPWM = brightness * 0.45;
   }
   else {
-    greenPWM = 100;
+    greenPWM = brightness;
   }
   
   analogWrite(redPin,   redPWM);
   analogWrite(greenPin, greenPWM);
   analogWrite(bluePin,  bluePWM);
 
+ //debug
+ Serial.printf("LDR=%d  Brightness=%d  Temp=%.1f°C  Hum=%.1f%%  LED[R,G,B]=[%d,%d,%d]\n",
+                lightValue, brightness, temperature, humidity, redPWM, greenPWM, bluePWM);
  delay(2000);
 }
