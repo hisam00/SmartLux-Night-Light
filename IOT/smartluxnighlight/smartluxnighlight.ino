@@ -10,6 +10,7 @@ const int bluePin         = 13;
 
 DHT dht(DHTPin, DHTType);
 
+const float coldThreshold  = 18.0;   
 
 void setup() {
   // put your setup code here, to run once:
@@ -29,5 +30,20 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
+  float humidity       = dht.readHumidity();
+  float temperature    = dht.readTemperature();
 
+  int redPWM   = 0;
+  int greenPWM = 0;
+  int bluePWM  = 0;
+
+  if (temperature < coldThreshold) {
+    bluePWM = 100;
+  }
+  
+  analogWrite(redPin,   redPWM);
+  analogWrite(greenPin, greenPWM);
+  analogWrite(bluePin,  bluePWM);
+
+ delay(2000);
 }
