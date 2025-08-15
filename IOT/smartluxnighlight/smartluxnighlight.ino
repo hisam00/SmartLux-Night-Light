@@ -10,7 +10,8 @@ const int bluePin         = 13;
 
 DHT dht(DHTPin, DHTType);
 
-const float coldThreshold  = 18.0;   
+const float coldThreshold  = 18.0;   // both in celcius
+const float hotThreshold   = 33.0;
 
 void setup() {
   // put your setup code here, to run once:
@@ -40,6 +41,11 @@ void loop() {
   if (temperature < coldThreshold) {
     bluePWM = 100;
   }
+  else if (temperature > hotThreshold) {
+    redPWM   = 100;
+    greenPWM = 100 * 0.45;
+  }
+
   
   analogWrite(redPin,   redPWM);
   analogWrite(greenPin, greenPWM);
