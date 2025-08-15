@@ -37,6 +37,7 @@ void loop() {
   float humidity       = dht.readHumidity();
   float temperature    = dht.readTemperature();
   int   lightValue     = analogRead(lightSensorPin);
+  bool  motionDetected = (digitalRead(motionSensorPin) == HIGH);
 
   int brightness = map(lightValue, darkThreshold, lightThreshold, 0, maxBrightness);
   brightness = constrain(brightness, 0, maxBrightness);
@@ -45,23 +46,27 @@ void loop() {
   int greenPWM = 0;
   int bluePWM  = 0;
 
-  if (temperature < coldThreshold) {
-    bluePWM = brightness;
+  if (motionDetected) {
+
+    if (temperature < coldThreshold) {
+      bluePWM = brightness;
+    }
+    else if (temperature > hotThreshold) {
+      redPWM   = brightness;
+      greenPWM = brightness * 0.45;
+    }
+    else {
+      greenPWM = brightness;
+    }
+
   }
-  else if (temperature > hotThreshold) {
-    redPWM   = brightness;
-    greenPWM = brightness * 0.45;
-  }
-  else {
-    greenPWM = brightness;
-  }
-  
+
   analogWrite(redPin,   redPWM);
   analogWrite(greenPin, greenPWM);
   analogWrite(bluePin,  bluePWM);
 
  //debug
- Serial.printf("LDR=%d  Brightness=%d  Temp=%.1f°C  Hum=%.1f%%  LED[R,G,B]=[%d,%d,%d]\n",
-                lightValue, brightness, temperature, humidity, redPWM, greenPWM, bluePWM);
+ Serial.printf("LDR=%d  Motion=%d  Brightness=%d  Temp=%.1f°C  Hum=%.1f%%  LED[R,G,B]=[%d,%d,%d]\n",
+                lightValue, motionDetected, brightness, temperature, humidity, redPWM, greenPWM, bluePWM);
  delay(2000);
 }
