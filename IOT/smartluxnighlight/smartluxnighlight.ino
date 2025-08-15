@@ -45,7 +45,9 @@ void loop() {
     redPWM   = 100;
     greenPWM = 100 * 0.45;
   }
-
+  else {
+    greenPWM = 100;
+  }
   
   analogWrite(redPin,   redPWM);
   analogWrite(greenPin, greenPWM);
