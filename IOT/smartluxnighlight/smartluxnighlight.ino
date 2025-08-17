@@ -13,8 +13,12 @@ DHT dht(DHTPin, DHTType);
 const int lightThreshold = 4095;
 const int darkThreshold  = 3700;
 const int maxBrightness  = 100;
-const float coldThreshold  = 18.0;   // both in celcius
+const float coldThreshold  = 22.0;   // both in celcius
 const float hotThreshold   = 33.0;
+
+const unsigned long motionTimeout = 60000; // milisecond tips 1 min = 60000 mili
+unsigned long lastMotionTime = 0;
+bool ledsActive = false;
 
 void setup() {
   // put your setup code here, to run once:
@@ -47,6 +51,13 @@ void loop() {
   int bluePWM  = 0;
 
   if (motionDetected) {
+    lastMotionTime = millis();
+    ledsActive = true;
+  } else if (ledsActive && (millis() - lastMotionTime >= motionTimeout)) {
+    ledsActive = false;
+  }
+
+  if (ledsActive) {
 
     if (temperature < coldThreshold) {
       bluePWM = brightness;
