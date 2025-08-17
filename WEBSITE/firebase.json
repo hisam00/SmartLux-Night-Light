@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "public": "public/dist/smartlux-night-light/browser",
+    "public": "public",
     "ignore": [
       "firebase.json",
       "**/.*",
