@@ -129,7 +129,6 @@
     input[type="file"] {
       display: none;
     }
-
     @media (max-width: 600px) {
       .container-profile {
         padding: 1.5rem 1rem 2rem;
@@ -175,43 +174,42 @@
       <div class="form-row profile-btn-group" style="align-items:flex-end;">
         <div style="flex:1; min-width:180px;">
           <label for="password">Password</label>
-          <input type="password" class="form-control" id="password" value="********" readonly autocomplete="current-password" />
+          <input type="password" class="form-control" id="password" value="***\****\*" readonly autocomplete="current-password" />
         </div>
         <button type="button" class="btn btn-secondary" onclick="changePassword()" aria-label="Change password">
           <i class="fas fa-key"></i> Change Password
         </button>
       </div>
-		<div class="form-row profile-btn-group" style="align-items:flex-end;">
-		  <div style="flex:1; min-width:180px;">
-			<label for="email">Email Address</label>
-			<input type="email" class="form-control" id="email" value="azimuser@email.com" readonly autocomplete="email" />
-		  </div>
-		  <!-- Give the buttons IDs so the script can control them -->
-		  <div style="display:flex; flex-direction:column; gap:8px;">
-			<button id="verifyBtn" type="button" class="btn btn-secondary" aria-label="Verify email address">
-			  <i class="fas fa-envelope"></i> Verify Email
-			</button>
-			<button id="checkVerifyBtn" type="button" class="btn btn-secondary" aria-label="Check verification status">
-			  <i class="fas fa-check-circle"></i> I verified — Check now
-			</button>
-			<div id="verifyStatus" style="font-size:0.9rem; color:#107978; margin-top:6px;"></div>
-		  </div>
-		</div>
+      <div class="form-row profile-btn-group" style="align-items:flex-end;">
+        <div style="flex:1; min-width:180px;">
+          <label for="email">Email Address</label>
+          <input type="email" class="form-control" id="email" value="azimuser@email.com" readonly autocomplete="email" />
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <button id="verifyBtn" type="button" class="btn btn-secondary" aria-label="Verify email address">
+            <i class="fas fa-envelope"></i> Verify Email
+          </button>
+          <button id="checkVerifyBtn" type="button" class="btn btn-secondary" aria-label="Check verification status">
+            <i class="fas fa-check-circle"></i> I verified — Check now
+          </button>
+          <div id="verifyStatus" style="font-size:0.9rem; color:#107978; margin-top:6px;"></div>
+        </div>
+      </div>
       <div class="form-row" style="margin-top:36px;">
         <button type="submit" class="btn" >Save Changes</button>
       </div>
+      <div class="form-row profile-btn-group" style="margin-top: 20px;">
+        <button type="button" class="btn" id="goDashboardBtn">Go to dashboard</button>
+      </div>
     </form>
   </div>
-
 <script type="module">
   import { auth, db } from './firebase-config.js';
-
   import {
     onAuthStateChanged,
     sendEmailVerification,
     sendPasswordResetEmail
   } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
-
   import {
     doc,
     getDoc,
@@ -223,18 +221,15 @@
   // DOM refs
   const avatarEl = document.getElementById('profileAvatar');
   const fileInput = document.getElementById('fileInput');
-
   const usernameInput = document.getElementById('username');
   const firstNameInput = document.getElementById('firstName');
   const lastNameInput = document.getElementById('lastName');
   const emailInput = document.getElementById('email');
   const passwordInput = document.getElementById('password'); // readonly
   const profileForm = document.getElementById('profileForm');
-
   const verifyBtn = document.getElementById('verifyBtn');
   const checkVerifyBtn = document.getElementById('checkVerifyBtn');
   const verifyStatus = document.getElementById('verifyStatus');
-
   let currentUid = null;
   let userDocUnsubscribe = null;
   let fieldFocus = {}; // to track whether user is actively typing on a field
@@ -248,61 +243,42 @@
 
   // ---------- AUTH & FIRESTORE SYNC ----------
   onAuthStateChanged(auth, async (user) => {
-    // cleanup any previous snapshot listener
     if (userDocUnsubscribe) {
       userDocUnsubscribe();
       userDocUnsubscribe = null;
     }
-
     if (!user) {
       console.log('No user signed in — redirecting to login.');
       location.replace('login.html');
       return;
     }
-
     currentUid = user.uid;
     console.log('Signed in:', user.uid, user.email);
-
-    // populate email and avatar from auth immediately
     emailInput.value = user.email || '';
     if (user.photoURL) avatarEl.src = user.photoURL;
-
-    // handle email verified UI
     updateVerifyUI(user);
 
-    // subscribe to Firestore users/{uid} for realtime updates
     const userDocRef = doc(db, 'users', currentUid);
-
-    // onSnapshot keeps the UI synchronized with any changes in Firestore
     userDocUnsubscribe = onSnapshot(userDocRef, (snap) => {
       if (!snap.exists()) {
         console.log('users/{uid} doc not found. Will create on save.');
         return;
       }
-
       const data = snap.data();
       console.log('Realtime users/{uid} update:', data);
-
-      // Only update fields if user is not currently editing them
       if (data.username && !fieldFocus['username']) usernameInput.value = data.username;
       if (data.firstName && !fieldFocus['firstName']) firstNameInput.value = data.firstName;
       if (data.lastName && !fieldFocus['lastName']) lastNameInput.value = data.lastName;
-
-      // Email in Firestore may exist but prefer Auth email for canonical value
       if (data.email && !auth.currentUser?.email) emailInput.value = data.email;
-
-      // avatar: if stored in Firestore, prefer that; otherwise use auth photoURL
       if (data.avatarUrl) avatarEl.src = data.avatarUrl;
       else if (auth.currentUser && auth.currentUser.photoURL) avatarEl.src = auth.currentUser.photoURL;
     }, (err) => {
       console.error('users/{uid} onSnapshot error:', err);
     });
 
-    // If no Firestore doc exists you may want to create a minimal one:
     try {
       const snap = await getDoc(userDocRef);
       if (!snap.exists()) {
-        // create basic doc from auth data to keep things consistent
         await setDoc(userDocRef, {
           email: user.email || '',
           username: user.displayName || '',
@@ -345,12 +321,9 @@
       alert('Please choose an image file.');
       return;
     }
-
     const reader = new FileReader();
     reader.onload = (ev) => {
-      avatarEl.src = ev.target.result; // preview only
-      // NOTE: to persist avatar across devices, upload this file to Firebase Storage
-      // and save download URL to users/{uid}.avatarUrl. I can add that snippet if you want.
+      avatarEl.src = ev.target.result; 
     };
     reader.readAsDataURL(file);
   });
@@ -359,20 +332,16 @@
   profileForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!currentUid) { alert('No user signed in'); return; }
-
     const payload = {};
-    // only include fields that changed (better UX & fewer writes)
     payload.username = usernameInput.value.trim();
     payload.firstName = firstNameInput.value.trim();
     payload.lastName = lastNameInput.value.trim();
     payload.updatedAt = new Date();
-
     try {
       const userDocRef = doc(db, 'users', currentUid);
       await updateDoc(userDocRef, payload);
       alert('Profile changes saved successfully!');
     } catch (err) {
-      // if updateDoc fails because doc doesn't exist, fallback to setDoc
       console.warn('updateDoc failed, trying setDoc:', err);
       try {
         await setDoc(doc(db, 'users', currentUid), payload, { merge: true });
@@ -396,20 +365,14 @@
       alert('Could not send verification: ' + err.message);
     }
   });
-
   checkVerifyBtn.addEventListener('click', async () => {
     try {
       const user = auth.currentUser;
       if (!user) throw new Error('No signed-in user');
-
-      // Force refresh user from server
       await user.reload();
-
-      // Update UI and notify user
       updateVerifyUI(auth.currentUser);
       if (auth.currentUser.emailVerified) {
         alert('Email verified — thank you! You can now proceed.');
-        // Optionally refresh token: await auth.currentUser.getIdToken(true);
       } else {
         alert('Email still not verified. Please click the link in your email and try "Check now" again.');
       }
@@ -425,7 +388,6 @@
       const user = auth.currentUser;
       const email = user && user.email;
       if (!email) throw new Error('No email available for reset');
-
       await sendPasswordResetEmail(auth, email);
       alert('Password reset email sent to ' + email);
     } catch (err) {
@@ -434,13 +396,31 @@
     }
   };
 
-  // Also expose verifyEmail for any inline onclicks
-  window.verifyEmail = async function verifyEmail() {
-    verifyBtn.click();
-  };
-
+  // ---------- Go to dashboard button logic ----------
+  document.getElementById('goDashboardBtn').addEventListener('click', async () => {
+    if (!currentUid) {
+      alert('No user is signed in.');
+      return;
+    }
+    try {
+      const userDocRef = doc(db, 'users', currentUid);
+      const userDocSnap = await getDoc(userDocRef);
+      if (!userDocSnap.exists()) {
+        alert('User data not found.');
+        return;
+      }
+      const userData = userDocSnap.data();
+      const role = userData.role; // expects role field to be 'user' or 'admin'
+      if (role === 'admin') {
+        window.location.href = 'dashboardAdmin.html';
+      } else {
+        window.location.href = 'dashboard.html';
+      }
+    } catch (error) {
+      console.error('Error fetching user role:', error);
+      alert('Error retrieving user role. Please try again.');
+    }
+  });
 </script>
-
-
 </body>
 </html>
