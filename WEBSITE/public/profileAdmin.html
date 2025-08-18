@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Profile Setup - SMARTLUX NIGHT LIGHT</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="vendor/fontawesome-free/css/all.min.css" rel="stylesheet" />
+  <link href="css/sb-admin-2.min.css" rel="stylesheet" />
+  <style>
+    body {
+      background: linear-gradient(120deg, #2096ff 0%, #05ffa3 100%);
+      font-family: 'Poppins', sans-serif;
+    }
+    .container-profile {
+      max-width: 480px;
+      margin: 3rem auto;
+      background: #fff;
+      border-radius: 15px;
+      box-shadow: 0 8px 32px rgba(32, 150, 255, 0.12), 0 2px 4px rgba(5, 255, 163, 0.15);
+      padding: 2.5rem 2.5rem 3rem;
+      position: relative;
+      text-align: center;
+    }
+    .avatar {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      margin-bottom: 0.5em;
+      object-fit: cover;
+      box-shadow: 0 2px 16px rgba(32,150,255,0.2);
+      cursor: pointer;
+      border: 3px solid #2096ff;
+      transition: box-shadow 0.3s ease;
+      display: inline-block;
+    }
+    .avatar:hover {
+      box-shadow: 0 0 18px 6px #05ffa3;
+    }
+    form {
+      margin-top: 1rem;
+      text-align: left;
+    }
+    label {
+      font-weight: 500;
+      color: #107978;
+      margin-bottom: 0.25em;
+      display: block;
+    }
+    input.form-control {
+      padding: 0.5rem 0.75rem;
+      font-size: 1rem;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      width: 100%;
+      box-sizing: border-box;
+      margin-bottom: 1rem;
+    }
+    .btn-group {
+      margin-top: 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      padding: 0.55rem 1.5rem;
+      border-radius: 25px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      border: none;
+      cursor: pointer;
+      background: linear-gradient(120deg, #2096ff 0%, #05ffa3 100%);
+      color: #fff;
+      transition: box-shadow 0.3s ease, background 0.3s ease, transform 0.15s ease;
+      user-select: none;
+      min-width: 140px;
+      text-align: center;
+      box-shadow: 0 5px 15px rgba(32, 150, 255, 0.25);
+      display: inline-block;
+    }
+    .btn:hover {
+      background: linear-gradient(120deg, #05ffa3 0%, #2096ff 100%);
+      box-shadow: 0 8px 20px rgba(5, 255, 163, 0.4);
+      transform: scale(1.05);
+    }
+    .btn:active {
+      transform: scale(0.98);
+    }
+    @media (max-width: 600px) {
+      .container-profile {
+        padding: 1.5rem 1rem 2rem;
+      }
+      .btn {
+        min-width: 100%;
+      }
+      .btn-group {
+        flex-direction: column;
+      }
+    }
+    input[type="file"] {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <main class="container-profile" role="main" aria-label="Admin Profile Setup">
+    <h2>Admin Profile Setup</h2>
+    <p style="color:#555; font-size:1rem; margin-bottom:1.5rem;">
+      Please enter your details to complete admin setup.
+    </p>
+
+    <img
+      src="img/undraw_profile.svg"
+      alt="Profile Avatar"
+      class="avatar"
+      id="profileAvatar"
+      title="Click to upload profile picture"
+    />
+    <input type="file" id="fileInput" accept="image/*" aria-label="Upload profile picture" />
+
+    <form id="adminProfileForm" novalidate>
+      <label for="username">Username</label>
+      <input type="text" id="username" class="form-control" placeholder="Enter username" autocomplete="username" required />
+
+      <label for="firstName">First Name</label>
+      <input type="text" id="firstName" class="form-control" placeholder="Enter first name" autocomplete="given-name" required />
+
+      <label for="lastName">Last Name</label>
+      <input type="text" id="lastName" class="form-control" placeholder="Enter last name" autocomplete="family-name" required />
+
+      <label for="email">Email Address</label>
+      <input type="email" id="email" class="form-control" placeholder="Enter email address" autocomplete="email" required />
+
+      <label for="password">Password</label>
+      <input type="password" id="password" class="form-control" placeholder="Enter password" autocomplete="new-password" required />
+
+      <label for="repeatPassword">Confirm Password</label>
+      <input type="password" id="repeatPassword" class="form-control" placeholder="Confirm password" autocomplete="new-password" required />
+
+      <div class="btn-group">
+        <button type="submit" class="btn" aria-label="Save Admin Profile">Save Changes</button>
+        <button type="button" class="btn" id="goDashboardBtn" aria-label="Go to Dashboard">Go to Dashboard</button>
+      </div>
+    </form>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js';
+    import {
+      getAuth,
+      createUserWithEmailAndPassword,
+      updateProfile,
+      sendEmailVerification,
+    } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
+    import {
+      getFirestore,
+      doc,
+      setDoc,
+    } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
+    import {
+      getStorage,
+      ref as storageRef,
+      uploadBytesResumable,
+      getDownloadURL,
+    } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-storage.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBu4mqM1PeTHW4AKoP3e8Nhcx4jiHtwueU",
+      authDomain: "smartlux-night-light.firebaseapp.com",
+      databaseURL: "https://smartlux-night-light-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "smartlux-night-light",
+      storageBucket: "smartlux-night-light.firebasestorage.app",
+      messagingSenderId: "558742892847",
+      appId: "1:558742892847:web:30b85deeca4102cb7f71da",
+      measurementId: "G-MD4BV2GWYF"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+
+    const avatarEl = document.getElementById('profileAvatar');
+    const fileInput = document.getElementById('fileInput');
+    let selectedFile = null;
+
+    avatarEl.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) {
+        alert('Please choose an image file.');
+        return;
+      }
+      selectedFile = file;
+      const reader = new FileReader();
+      reader.onload = (ev) => avatarEl.src = ev.target.result;
+      reader.readAsDataURL(file);
+    });
+
+    const form = document.getElementById('adminProfileForm');
+    const goDashboardBtn = document.getElementById('goDashboardBtn');
+
+    goDashboardBtn.addEventListener('click', () => {
+      window.location.href = 'dashboard.html';
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const username = form.username.value.trim();
+      const firstName = form.firstName.value.trim();
+      const lastName = form.lastName.value.trim();
+      const email = form.email.value.trim();
+      const password = form.password.value;
+      const repeatPassword = form.repeatPassword.value;
+
+      if (!username || !firstName || !lastName || !email || !password || !repeatPassword) {
+        alert('Please fill out all fields.');
+        return;
+      }
+
+      if (password !== repeatPassword) {
+        alert('Passwords do not match.');
+        return;
+      }
+
+      try {
+        // Create user account with email and password
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // Update Firebase Auth profile displayName (username)
+        await updateProfile(user, { displayName: username });
+
+        // Upload avatar if selected
+        let avatarUrl = null;
+        if (selectedFile) {
+          const filename = `${Date.now()}_${selectedFile.name}`;
+          const storagePath = `avatars/${user.uid}/${filename}`;
+          const sRef = storageRef(storage, storagePath);
+          const uploadTask = uploadBytesResumable(sRef, selectedFile);
+
+          await new Promise((resolve, reject) => {
+            uploadTask.on('state_changed', 
+              null,
+              (err) => reject(err),
+              async () => {
+                avatarUrl = await getDownloadURL(uploadTask.snapshot.ref);
+                resolve();
+              }
+            );
+          });
+        }
+
+        // Prepare Firestore data
+        const userData = {
+          username,
+          firstName,
+          lastName,
+          email,
+          role: 'admin',
+          createdAt: new Date(),
+        };
+        if (avatarUrl) {
+          userData.avatarUrl = avatarUrl;
+          // Update profile photoURL
+          await updateProfile(user, { photoURL: avatarUrl });
+        }
+
+        // Save user data to Firestore
+        await setDoc(doc(db, 'users', user.uid), userData);
+
+        // Send verification email
+        await sendEmailVerification(user);
+
+        alert('Admin profile created successfully! Verification email sent.');
+        window.location.href = 'dashboard.html';
+
+      } catch (error) {
+        console.error('Error creating admin profile:', error);
+        alert('Error: ' + error.message);
+      }
+    });
+  </script>
+</body>
+</html>
