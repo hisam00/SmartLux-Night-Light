@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Profile - SMARTLUX NIGHT LIGHT</title>
+  <title>SmartLux Night Light - Profile</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
   <link href="vendor/fontawesome-free/css/all.min.css" rel="stylesheet" />
   <link href="css/sb-admin-2.min.css" rel="stylesheet" />
@@ -203,77 +203,109 @@
       </div>
     </form>
   </div>
+  
+
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import {
     onAuthStateChanged,
     sendEmailVerification,
-    sendPasswordResetEmail
+    sendPasswordResetEmail,
+    updateProfile
   } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
   import {
     doc,
     getDoc,
     setDoc,
     updateDoc,
-    onSnapshot
+    onSnapshot,
+    setLogLevel
   } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
 
-  // DOM refs
+  // Enable Firestore SDK debug logging
+  setLogLevel('debug');
+
+  // Cloudinary config — replace with your values
+  const CLOUDINARY_UPLOAD_PRESET = 'unsigned_preset'; // your unsigned preset name
+  const CLOUDINARY_CLOUD_NAME = 'ddcoqy5xo';
+
+  // DOM elements
   const avatarEl = document.getElementById('profileAvatar');
   const fileInput = document.getElementById('fileInput');
   const usernameInput = document.getElementById('username');
   const firstNameInput = document.getElementById('firstName');
   const lastNameInput = document.getElementById('lastName');
   const emailInput = document.getElementById('email');
-  const passwordInput = document.getElementById('password'); // readonly
+  const passwordInput = document.getElementById('password');
   const profileForm = document.getElementById('profileForm');
   const verifyBtn = document.getElementById('verifyBtn');
   const checkVerifyBtn = document.getElementById('checkVerifyBtn');
   const verifyStatus = document.getElementById('verifyStatus');
   let currentUid = null;
   let userDocUnsubscribe = null;
-  let fieldFocus = {}; // to track whether user is actively typing on a field
+  let fieldFocus = {};
 
-  // avoid overwriting fields while user types
+  // Prevent overwriting inputs while typing
   ['username','firstName','lastName'].forEach(id => {
     const el = document.getElementById(id);
     el.addEventListener('focus', () => fieldFocus[id] = true);
-    el.addEventListener('blur',  () => { fieldFocus[id] = false; });
+    el.addEventListener('blur', () => { fieldFocus[id] = false; });
   });
 
-  // ---------- AUTH & FIRESTORE SYNC ----------
+  // Upload file to Cloudinary
+  async function uploadToCloudinary(file) {
+    const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/upload`;
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData
+    });
+    if (!response.ok) {
+      const errData = await response.json();
+      throw new Error(errData.error?.message || 'Cloudinary upload failed');
+    }
+    const data = await response.json();
+    return data.secure_url;
+  }
+
+  // Listen for auth state
   onAuthStateChanged(auth, async (user) => {
     if (userDocUnsubscribe) {
       userDocUnsubscribe();
       userDocUnsubscribe = null;
     }
     if (!user) {
-      console.log('No user signed in — redirecting to login.');
       location.replace('login.html');
       return;
     }
     currentUid = user.uid;
-    console.log('Signed in:', user.uid, user.email);
     emailInput.value = user.email || '';
-    if (user.photoURL) avatarEl.src = user.photoURL;
+
+    if (user.photoURL) {
+      avatarEl.src = user.photoURL + '?t=' + Date.now();
+    }
+
     updateVerifyUI(user);
 
     const userDocRef = doc(db, 'users', currentUid);
+
     userDocUnsubscribe = onSnapshot(userDocRef, (snap) => {
-      if (!snap.exists()) {
-        console.log('users/{uid} doc not found. Will create on save.');
-        return;
-      }
+      if (!snap.exists()) return;
       const data = snap.data();
-      console.log('Realtime users/{uid} update:', data);
+
       if (data.username && !fieldFocus['username']) usernameInput.value = data.username;
       if (data.firstName && !fieldFocus['firstName']) firstNameInput.value = data.firstName;
       if (data.lastName && !fieldFocus['lastName']) lastNameInput.value = data.lastName;
-      if (data.email && !auth.currentUser?.email) emailInput.value = data.email;
-      if (data.avatarUrl) avatarEl.src = data.avatarUrl;
-      else if (auth.currentUser && auth.currentUser.photoURL) avatarEl.src = auth.currentUser.photoURL;
-    }, (err) => {
-      console.error('users/{uid} onSnapshot error:', err);
+
+      if (data.avatarUrl) {
+        avatarEl.src = data.avatarUrl + '?t=' + Date.now();
+        console.log('Avatar updated from Firestore:', avatarEl.src);
+      } else if (user.photoURL) {
+        avatarEl.src = user.photoURL + '?t=' + Date.now();
+      }
     });
 
     try {
@@ -286,14 +318,15 @@
           lastName: '',
           createdAt: new Date()
         }, { merge: true });
-        console.log('Created initial users/{uid} doc for', currentUid);
+        console.log('User document created in Firestore');
       }
     } catch (err) {
-      console.error('Error checking/creating users/{uid}:', err);
+      console.error('Error creating user doc:', err);
+      alert('Error initializing user profile: ' + err.message);
     }
   });
 
-  // ---------- UI helpers ----------
+  // Update email verification UI
   function updateVerifyUI(user) {
     if (!user) {
       verifyBtn.style.display = 'none';
@@ -312,77 +345,113 @@
     }
   }
 
-  // ---------- Avatar preview (local) ----------
+  // Open file picker on avatar click
   avatarEl.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', (e) => {
+
+  // Handle file selection and upload to Cloudinary
+  fileInput.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
       alert('Please choose an image file.');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      avatarEl.src = ev.target.result; 
-    };
-    reader.readAsDataURL(file);
+    try {
+      // Preview locally
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        avatarEl.src = ev.target.result;
+        console.log('Local preview updated');
+      };
+      reader.readAsDataURL(file);
+
+      // Upload to Cloudinary
+      const url = await uploadToCloudinary(file);
+      console.log('Cloudinary URL:', url);
+
+      // Save URL to Firestore
+      const userDocRef = doc(db, 'users', currentUid);
+      await setDoc(userDocRef, { avatarUrl: url }, { merge: true });
+      console.log('Firestore updated with avatarUrl:', url);
+
+      // Update Firebase Auth user profile photoURL
+      await updateProfile(auth.currentUser, { photoURL: url });
+      console.log('Firebase Auth user profile photoURL updated');
+
+      // Cache bust avatar image
+      avatarEl.src = url + '?t=' + Date.now();
+
+      //alert('Profile image uploaded successfully!');
+    } catch (err) {
+      console.error('Upload error:', err);
+      alert('Failed to upload profile image: ' + err.message);
+    }
   });
 
-  // ---------- Save changes ----------
+  // Save profile info changes
   profileForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!currentUid) { alert('No user signed in'); return; }
-    const payload = {};
-    payload.username = usernameInput.value.trim();
-    payload.firstName = firstNameInput.value.trim();
-    payload.lastName = lastNameInput.value.trim();
-    payload.updatedAt = new Date();
+    if (!currentUid) {
+      alert('No user signed in');
+      return;
+    }
     try {
       const userDocRef = doc(db, 'users', currentUid);
-      await updateDoc(userDocRef, payload);
+      await updateDoc(userDocRef, {
+        username: usernameInput.value.trim(),
+        firstName: firstNameInput.value.trim(),
+        lastName: lastNameInput.value.trim(),
+        updatedAt: new Date(),
+      });
       alert('Profile changes saved successfully!');
     } catch (err) {
       console.warn('updateDoc failed, trying setDoc:', err);
       try {
-        await setDoc(doc(db, 'users', currentUid), payload, { merge: true });
+        await setDoc(doc(db, 'users', currentUid), {
+          username: usernameInput.value.trim(),
+          firstName: firstNameInput.value.trim(),
+          lastName: lastNameInput.value.trim(),
+          updatedAt: new Date(),
+        }, { merge: true });
         alert('Profile created and saved!');
       } catch (err2) {
-        console.error('Saving profile failed:', err2);
+        console.error('Saving failed:', err2);
         alert('Could not save profile: ' + err2.message);
       }
     }
   });
 
-  // ---------- Verify / Check Now ----------
+  // Email verification handlers
   verifyBtn.addEventListener('click', async () => {
     try {
       const user = auth.currentUser;
-      if (!user) throw new Error('No signed-in user');
+      if (!user) throw new Error('No user signed in');
       await sendEmailVerification(user);
-      alert('Verification email sent. Check your inbox (and spam).');
+      alert('Verification email sent. Check inbox/spam.');
     } catch (err) {
-      console.error('sendEmailVerification failed', err);
+      console.error('Verification send failed:', err);
       alert('Could not send verification: ' + err.message);
     }
   });
+
   checkVerifyBtn.addEventListener('click', async () => {
     try {
       const user = auth.currentUser;
-      if (!user) throw new Error('No signed-in user');
+      if (!user) throw new Error('No user signed in');
       await user.reload();
       updateVerifyUI(auth.currentUser);
       if (auth.currentUser.emailVerified) {
-        alert('Email verified — thank you! You can now proceed.');
+        alert('Email verified. Thank you!');
       } else {
-        alert('Email still not verified. Please click the link in your email and try "Check now" again.');
+        alert('Email still not verified. Check your inbox and click "Check now" again.');
       }
     } catch (err) {
-      console.error('Verification check failed', err);
+      console.error('Verification check failed:', err);
       alert('Could not check verification: ' + err.message);
     }
   });
 
-  // ---------- Change password (send reset email) ----------
+  // Password reset handler
   window.changePassword = async function changePassword() {
     try {
       const user = auth.currentUser;
@@ -391,15 +460,15 @@
       await sendPasswordResetEmail(auth, email);
       alert('Password reset email sent to ' + email);
     } catch (err) {
-      console.error('sendPasswordResetEmail failed', err);
+      console.error('sendPasswordResetEmail failed:', err);
       alert('Could not send password reset: ' + err.message);
     }
   };
 
-  // ---------- Go to dashboard button logic ----------
+  // Go to dashboard logic
   document.getElementById('goDashboardBtn').addEventListener('click', async () => {
     if (!currentUid) {
-      alert('No user is signed in.');
+      alert('No user signed in.');
       return;
     }
     try {
@@ -410,17 +479,24 @@
         return;
       }
       const userData = userDocSnap.data();
-      const role = userData.role; // expects role field to be 'user' or 'admin'
+      const role = userData.role;
       if (role === 'admin') {
         window.location.href = 'dashboardadmin.html';
       } else {
         window.location.href = 'dashboard.html';
       }
     } catch (error) {
-      console.error('Error fetching user role:', error);
+      console.error('Error retrieving user role:', error);
       alert('Error retrieving user role. Please try again.');
     }
   });
 </script>
+
+
+
+
+
+
+
 </body>
 </html>
