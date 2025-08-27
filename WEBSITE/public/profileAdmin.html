@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Admin Profile Setup - SMARTLUX NIGHT LIGHT</title>
+  <title>SmartLux Night Light - Setup Admin Profile</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
   <link href="vendor/fontawesome-free/css/all.min.css" rel="stylesheet" />
   <link href="css/sb-admin-2.min.css" rel="stylesheet" />
@@ -145,299 +145,204 @@
   </main>
 
   <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js';
-    import {
-      getAuth,
-      onAuthStateChanged,
-      EmailAuthProvider,
-      linkWithCredential,
-      updateProfile,
-      createUserWithEmailAndPassword,
-      sendEmailVerification,
-    } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
-    import {
-      getFirestore,
-      doc,
-      setDoc,
-      getDoc,
-      updateDoc
-    } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
-    import {
-      getStorage,
-      ref as storageRef,
-      uploadBytesResumable,
-      getDownloadURL,
-    } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-storage.js';
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js';
+  import {
+    getAuth,
+    onAuthStateChanged,
+    EmailAuthProvider,
+    linkWithCredential,
+    updateProfile,
+    createUserWithEmailAndPassword,
+    sendEmailVerification,
+  } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
+  import {
+    getFirestore,
+    doc,
+    setDoc,
+    getDoc,
+    updateDoc
+  } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
 
-    // ---------- config ----------
-    const firebaseConfig = {
-      apiKey: "AIzaSyBu4mqM1PeTHW4AKoP3e8Nhcx4jiHtwueU",
-      authDomain: "smartlux-night-light.firebaseapp.com",
-      databaseURL: "https://smartlux-night-light-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "smartlux-night-light",
-      storageBucket: "smartlux-night-light.firebasestorage.app",
-      messagingSenderId: "558742892847",
-      appId: "1:558742892847:web:30b85deeca4102cb7f71da",
-      measurementId: "G-MD4BV2GWYF"
-    };
+  // ---------- config ----------
+  const firebaseConfig = {
+    apiKey: "AIzaSyBu4mqM1PeTHW4AKoP3e8Nhcx4jiHtwueU",
+    authDomain: "smartlux-night-light.firebaseapp.com",
+    databaseURL: "https://smartlux-night-light-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "smartlux-night-light",
+    storageBucket: "smartlux-night-light.firebasestorage.app",
+    messagingSenderId: "558742892847",
+    appId: "1:558742892847:web:30b85deeca4102cb7f71da",
+    measurementId: "G-MD4BV2GWYF"
+  };
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const storage = getStorage(app);
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
 
-    // ---------- DOM ----------
-    const avatarEl = document.getElementById('profileAvatar');
-    const fileInput = document.getElementById('fileInput');
-    let selectedFile = null;
+  // Cloudinary config — use your values here
+  const CLOUDINARY_UPLOAD_PRESET = 'unsigned_preset';  // your unsigned upload preset
+  const CLOUDINARY_CLOUD_NAME = 'ddcoqy5xo';
 
-    avatarEl.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      if (!file.type.startsWith('image/')) {
-        alert('Please choose an image file.');
-        return;
-      }
-      selectedFile = file;
-      const reader = new FileReader();
-      reader.onload = (ev) => avatarEl.src = ev.target.result;
-      reader.readAsDataURL(file);
-    });
+  // DOM
+  const avatarEl = document.getElementById('profileAvatar');
+  const fileInput = document.getElementById('fileInput');
+  let selectedFile = null;
 
-    const form = document.getElementById('adminProfileForm');
-	const goDashboardBtn = document.getElementById('goDashboardBtn');
-	
-	if (goDashboardBtn) {
-	  goDashboardBtn.addEventListener('click', () => {
-		window.location.href = 'dashboardadmin.html';
-	  });
-	}
+  // Open file picker on avatar click
+  avatarEl.addEventListener('click', () => fileInput.click());
 
-
-    // ---------- Auth / Firestore guard on load ----------
-    let currentUser = null;
-    onAuthStateChanged(auth, async (user) => {
-      currentUser = user;
-      if (!user) {
-        console.log('No user signed in — redirecting to login.');
-        location.replace('login.html');
-        return;
-      }
-
-      // Prefill email from auth if present
-      if (user.email) document.getElementById('email').value = user.email;
-
-      // If a user doc already exists -> this user already solidified account -> go to profile.html
-      try {
-        const userDocRef = doc(db, 'users', user.uid);
-        const snap = await getDoc(userDocRef);
-        if (snap.exists()) {
-          // user already created account — send to regular profile page
-          console.log('users/{uid} exists — redirecting to profile.html');
-          location.replace('profile.html');
-          return;
-        }
-        // else: user doc does not exist, allow them to create via this admin setup form
-      } catch (err) {
-        console.error('Failed to check users/{uid}:', err);
-        // allow user to proceed (we'll try to write later)
-      }
-    });
-
-    // ---------- helper: upload avatar ----------
-    async function uploadAvatarIfNeeded(uid) {
-      if (!selectedFile) return null;
-      const filename = `${Date.now()}_${selectedFile.name}`;
-      const storagePath = `avatars/${uid}/${filename}`;
-      const sRef = storageRef(storage, storagePath);
-      const uploadTask = uploadBytesResumable(sRef, selectedFile);
-
-      return await new Promise((resolve, reject) => {
-        uploadTask.on('state_changed',
-          null,
-          (err) => reject(err),
-          async () => {
-            try {
-              const url = await getDownloadURL(uploadTask.snapshot.ref);
-              resolve(url);
-            } catch (err) {
-              reject(err);
-            }
-          }
-        );
-      });
+  // Preview and select file
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Please choose an image file.');
+      return;
     }
+    selectedFile = file;
+    const reader = new FileReader();
+    reader.onload = (ev) => avatarEl.src = ev.target.result;
+    reader.readAsDataURL(file);
+  });
 
-    // ---------- submit handler ----------
-// ---------- submit handler (REPLACE your current submit handler WITH THIS) ----------
-form.addEventListener('submit', async (e) => {
-  e.preventDefault();
+  // Upload file to Cloudinary
+  async function uploadToCloudinary(file) {
+    const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/upload`;
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
 
-  const username = form.username.value.trim();
-  const firstName = form.firstName.value.trim();
-  const lastName = form.lastName.value.trim();
-  const email = form.email.value.trim();
-  const password = form.password.value;
-  const repeatPassword = form.repeatPassword.value;
-
-  if (!username || !firstName || !lastName || !email || !password || !repeatPassword) {
-    alert('Please fill out all fields.');
-    return;
-  }
-  if (password !== repeatPassword) {
-    alert('Passwords do not match.');
-    return;
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData
+    });
+    if (!response.ok) {
+      const errData = await response.json();
+      throw new Error(errData.error?.message || 'Cloudinary upload failed');
+    }
+    const data = await response.json();
+    return data.secure_url;
   }
 
-  try {
-    // helper to write user doc and force redirect for admin
-    async function writeUserAndGotoAdmin(uid, userData) {
-      console.log('Writing users/{uid} for', uid, userData);
-      await setDoc(doc(db, 'users', uid), userData);
-      console.log('Write complete. Reading back for verification...');
-      try {
-        const snap = await getDoc(doc(db, 'users', uid));
-        console.log('Readback snapshot:', snap.exists() ? snap.data() : '<no doc>');
-        // if the doc we wrote contains role: 'admin', go to dashboardadmin
-        if ((snap.exists() && (snap.data().role === 'admin')) || userData.role === 'admin') {
-          // Force admin dashboard
-          location.replace('dashboardadmin.html');
-          return true;
-        }
-      } catch (readErr) {
-        console.warn('Readback failed (will still redirect to admin if we just wrote it):', readErr);
-        // If we just wrote role admin, still redirect
-        if (userData.role === 'admin') {
-          location.replace('dashboardadmin.html');
-          return true;
-        }
-      }
-      return false;
+  // Form submit handler
+  const form = document.getElementById('adminProfileForm');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const username = form.username.value.trim();
+    const firstName = form.firstName.value.trim();
+    const lastName = form.lastName.value.trim();
+    const email = form.email.value.trim();
+    const password = form.password.value;
+    const repeatPassword = form.repeatPassword.value;
+
+    if (!username || !firstName || !lastName || !email || !password || !repeatPassword) {
+      alert('Please fill out all fields.');
+      return;
     }
-
-    // If signed-in user is anonymous -> link credential (preserve uid)
-    if (currentUser && currentUser.isAnonymous) {
-      try {
-        const credential = EmailAuthProvider.credential(email, password);
-        const linkResult = await linkWithCredential(currentUser, credential);
-        const user = linkResult.user || auth.currentUser;
-        const uid = user.uid;
-        console.log('Anonymous account linked. uid=', uid);
-
-        // upload avatar if present
-        let avatarUrl = null;
-        if (selectedFile) avatarUrl = await uploadAvatarIfNeeded(uid);
-
-        // update auth profile
-        const profileUpdates = { displayName: username };
-        if (avatarUrl) profileUpdates.photoURL = avatarUrl;
-        await updateProfile(user, profileUpdates);
-
-        // prepare Firestore payload
-        const userData = {
-          username,
-          firstName,
-          lastName,
-          email,
-          role: 'admin',
-          createdAt: new Date()
-        };
-        if (avatarUrl) userData.avatarUrl = avatarUrl;
-
-        // write and redirect to admin dashboard
-        const redirected = await writeUserAndGotoAdmin(uid, userData);
-        if (redirected) return;
-
-        // fallback: if not redirected (weird), notify and go admin anyway
-        alert('Account converted and saved. Redirecting to admin dashboard.');
-        location.replace('dashboardadmin.html');
-        return;
-      } catch (linkErr) {
-        console.error('linkWithCredential failed:', linkErr);
-        if (linkErr && linkErr.code === 'auth/email-already-in-use') {
-          alert('This email is already in use by another account. Please sign in with that account or choose a different email.');
-        } else {
-          alert('Could not convert temporary account: ' + (linkErr.message || linkErr));
-        }
-        return;
-      }
-    }
-
-    // If signed-in and not anonymous -> update/create users/{uid}
-    if (currentUser && !currentUser.isAnonymous) {
-      const uid = currentUser.uid;
-      let avatarUrl = null;
-      if (selectedFile) avatarUrl = await uploadAvatarIfNeeded(uid);
-
-      const profileUpdates = {};
-      if (username) profileUpdates.displayName = username;
-      if (avatarUrl) profileUpdates.photoURL = avatarUrl;
-      if (Object.keys(profileUpdates).length) {
-        await updateProfile(currentUser, profileUpdates);
-      }
-
-      const docPayload = {
-        username,
-        firstName,
-        lastName,
-        email,
-        role: 'admin',
-        updatedAt: new Date()
-      };
-      if (avatarUrl) docPayload.avatarUrl = avatarUrl;
-
-      // Write the doc and force redirect to admin dashboard
-      const redirected = await writeUserAndGotoAdmin(uid, docPayload);
-      if (redirected) return;
-
-      // fallback
-      alert('Profile saved successfully. Redirecting to admin dashboard.');
-      location.replace('dashboardadmin.html');
+    if (password !== repeatPassword) {
+      alert('Passwords do not match.');
       return;
     }
 
-    // No currentUser fallback: create new account then redirect
     try {
+      // Upload avatar image if selected
+      let avatarUrl = null;
+      if (selectedFile) {
+        avatarUrl = await uploadToCloudinary(selectedFile);
+      }
+
+      // Helper: write user doc and redirect
+      async function writeUserAndGotoAdmin(uid, userData) {
+        await setDoc(doc(db, 'users', uid), userData);
+        const snap = await getDoc(doc(db, 'users', uid));
+        if ((snap.exists() && (snap.data().role === 'admin')) || userData.role === 'admin') {
+          location.replace('dashboardadmin.html');
+          return true;
+        }
+        return false;
+      }
+
+      // Handle anonymous user linking
+      if (auth.currentUser && auth.currentUser.isAnonymous) {
+        try {
+          const credential = EmailAuthProvider.credential(email, password);
+          const linkResult = await linkWithCredential(auth.currentUser, credential);
+          const user = linkResult.user || auth.currentUser;
+          const uid = user.uid;
+
+          const profileUpdates = { displayName: username };
+          if (avatarUrl) profileUpdates.photoURL = avatarUrl;
+          await updateProfile(user, profileUpdates);
+
+          const userData = {
+            username, firstName, lastName, email,
+            role: 'admin',
+            createdAt: new Date()
+          };
+          if (avatarUrl) userData.avatarUrl = avatarUrl;
+
+          const redirected = await writeUserAndGotoAdmin(uid, userData);
+          if (redirected) return;
+
+          alert('Account converted and saved. Redirecting to admin dashboard.');
+          location.replace('dashboardadmin.html');
+          return;
+        } catch (linkErr) {
+          if (linkErr.code === 'auth/email-already-in-use') {
+            alert('This email is already in use by another account.');
+          } else {
+            alert('Could not convert temporary account: ' + linkErr.message);
+          }
+          return;
+        }
+      }
+
+      // For signed-in non-anonymous users
+      if (auth.currentUser && !auth.currentUser.isAnonymous) {
+        const uid = auth.currentUser.uid;
+        const updates = {};
+        if (username) updates.displayName = username;
+        if (avatarUrl) updates.photoURL = avatarUrl;
+        if (Object.keys(updates).length) {
+          await updateProfile(auth.currentUser, updates);
+        }
+
+        const docPayload = { username, firstName, lastName, email, role: 'admin', updatedAt: new Date() };
+        if (avatarUrl) docPayload.avatarUrl = avatarUrl;
+
+        const redirected = await writeUserAndGotoAdmin(uid, docPayload);
+        if (redirected) return;
+
+        alert('Profile saved successfully. Redirecting to admin dashboard.');
+        location.replace('dashboardadmin.html');
+        return;
+      }
+
+      // No currentUser: create user
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       const uid = user.uid;
 
-      let avatarUrl = null;
-      if (selectedFile) avatarUrl = await uploadAvatarIfNeeded(uid);
-
       await updateProfile(user, { displayName: username, ...(avatarUrl ? { photoURL: avatarUrl } : {}) });
 
-      const userData = {
-        username,
-        firstName,
-        lastName,
-        email,
-        role: 'admin',
-        createdAt: new Date()
-      };
+      const userData = { username, firstName, lastName, email, role: 'admin', createdAt: new Date() };
       if (avatarUrl) userData.avatarUrl = avatarUrl;
 
-      // write and redirect
       const redirected = await writeUserAndGotoAdmin(uid, userData);
       if (redirected) return;
 
-      // fallback
-      await sendEmailVerification(user).catch(()=>{});
+      await sendEmailVerification(user).catch(() => {});
+
       alert('Admin profile created successfully! Redirecting to admin dashboard.');
       location.replace('dashboardadmin.html');
-      return;
-    } catch (createErr) {
-      console.error('createUser fallback failed:', createErr);
-      alert('Error creating account: ' + (createErr.message || createErr));
-      return;
+    } catch (err) {
+      console.error('Saving admin profile failed:', err);
+      alert('Could not save profile: ' + err.message);
     }
+  });
 
-  } catch (err) {
-    console.error('Saving admin profile failed:', err);
-    alert('Could not save profile: ' + (err.message || err));
-  }
-});
+</script>
 
 
   </script>
