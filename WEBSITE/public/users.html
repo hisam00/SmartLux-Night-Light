@@ -4,10 +4,9 @@
   <meta charset="utf-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-  <title>SB Admin 2 - Users Management</title>
-  <!-- Fonts and styles -->
+  <title>SmartLux Night Light - User Access Control</title>
   <link href="vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css" />
-  <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css?family=Nunito:200,300,400,600,700,800,900" rel="stylesheet" />
   <link href="css/sb-admin-2.min.css" rel="stylesheet" />
   <link href="vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet" />
   <style>
@@ -15,313 +14,415 @@
     .sidebar-logo-img { width: 60px; height: auto; margin: 15px 0 0 0; }
     .sidebar-brand-text { font-size: 12px; margin-left: 0; margin-right: 18px; }
     .profile-img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
-    /* Modal form input focus */
-    .form-control:focus {
-      border-color: #8963BA;
-      box-shadow: 0 0 5px rgba(137, 99, 186, 0.5);
-    }
   </style>
 </head>
 <body id="page-top">
-<div id="wrapper">
-  <!-- Sidebar -->
-  <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
-    <a class="sidebar-brand d-flex align-items-center justify-content-center" href="dashboardadmin.html">
-      <img src="img/LOGONT.png" alt="Logo" class="sidebar-logo-img" />
-      <div class="sidebar-brand-text" style="font-size:15px;">SMARTLUX NIGHT LIGHT</div>
-    </a>
-    <hr class="sidebar-divider my-0" />
-    <li class="nav-item">
-      <a class="nav-link" href="dashboardadmin.html">
-        <i class="fas fa-fw fa-tachometer-alt"></i>
-        <span>Dashboard</span>
+  <div id="wrapper">
+    <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
+      <a class="sidebar-brand d-flex align-items-center justify-content-center" href="dashboardadmin.html">
+        <img src="img/LOGONT.png" alt="Logo" class="sidebar-logo-img" />
+        <div class="sidebar-brand-text" style="font-size:15px;">SMARTLUX NIGHT LIGHT</div>
       </a>
-    </li>
-    <hr class="sidebar-divider my-0" />
-    <li class="nav-item active">
-      <a class="nav-link" href="users.html">
-        <img src="img/iconUsers.png" alt="Users Icon" style="width:20px; height:20px; margin-right:8px;">
-        <span>Users</span>
-      </a>
-    </li>
-    <hr class="sidebar-divider d-none d-md-block" />
-    <div class="text-center d-none d-md-inline">
-      <button class="rounded-circle border-0" id="sidebarToggle"></button>
-    </div>
-  </ul>
-  <!-- End Sidebar -->
+      <hr class="sidebar-divider my-0" />
+      <li class="nav-item">
+        <a class="nav-link" href="dashboardadmin.html">
+          <i class="fas fa-fw fa-tachometer-alt"></i><span>Dashboard</span>
+        </a>
+      </li>
+      <hr class="sidebar-divider my-0" />
+      <li class="nav-item active">
+        <a class="nav-link" href="users.html">
+          <img src="img/iconUsers.png" alt="Users Icon" style="width:20px; height:20px; margin-right:8px;" />
+          <span>Users</span>
+        </a>
+      </li>
+      <hr class="sidebar-divider d-none d-md-block" />
+      <div class="text-center d-none d-md-inline">
+        <button class="rounded-circle border-0" id="sidebarToggle"></button>
+      </div>
+    </ul>
 
-  <div id="content-wrapper" class="d-flex flex-column">
-    <div id="content">
-      <!-- Topbar -->
-      <nav class="navbar navbar-expand navbar-light bg-white topbar mb-4 static-top shadow">
-        <button id="sidebarToggleTop" class="btn btn-link d-md-none rounded-circle mr-3">
-          <i class="fa fa-bars"></i>
-        </button>
-        <ul class="navbar-nav ml-auto">
-          <li class="nav-item dropdown no-arrow">
-            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-toggle="dropdown"
-               aria-haspopup="true" aria-expanded="false">
-              <span id="topbarUsername" class="mr-2 d-none d-lg-inline text-gray-600 small">Admin</span>
-              <img id="topbarAvatar" class="img-profile rounded-circle" src="img/undraw_profile.svg" />
-            </a>
-            <div class="dropdown-menu dropdown-menu-right shadow animated--grow-in" aria-labelledby="userDropdown">
-              <a class="dropdown-item" href="#" id="profileLink">
-                <i class="fas fa-user fa-sm fa-fw mr-2 text-gray-400"></i>
-                Profile
+    <div id="content-wrapper" class="d-flex flex-column">
+      <div id="content">
+        <nav class="navbar navbar-expand navbar-light bg-white topbar mb-4 static-top shadow">
+          <button id="sidebarToggleTop" class="btn btn-link d-md-none rounded-circle mr-3">
+            <i class="fa fa-bars"></i>
+          </button>
+          <ul class="navbar-nav ml-auto">
+            <li class="nav-item dropdown no-arrow">
+              <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                <span id="topbarUsername" class="mr-2 d-none d-lg-inline text-gray-600 small">Admin</span>
+                <img id="topbarAvatar" class="img-profile rounded-circle" src="img/undraw_profile.svg" />
               </a>
-              <div class="dropdown-divider"></div>
-              <a class="dropdown-item" href="#" data-toggle="modal" data-target="#logoutModal">
-                <i class="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-gray-400"></i>
-                Logout
-              </a>
-            </div>
-          </li>
-        </ul>
-      </nav>
-      <!-- End Topbar -->
+              <div class="dropdown-menu dropdown-menu-right shadow animated--grow-in" aria-labelledby="userDropdown">
+                <a class="dropdown-item" href="profile.html">
+                  <i class="fas fa-user fa-sm fa-fw mr-2 text-gray-400"></i>Profile
+                </a>
+                <div class="dropdown-divider"></div>
+                <a class="dropdown-item" href="#" data-toggle="modal" data-target="#logoutModal">
+                  <i class="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-gray-400"></i>Logout
+                </a>
+              </div>
+            </li>
+          </ul>
+        </nav>
 
-      <!-- Page Content -->
-      <div class="container-fluid">
-        <h1 class="h3 mb-4 text-gray-800">User Management</h1>
+        <div class="container-fluid">
+          <h1 class="h3 mb-4 text-gray-800">User Management</h1>
+          <button class="btn btn-primary mb-3" data-toggle="modal" data-target="#addUserModal">
+            <i class="fas fa-user-plus"></i> Add User
+          </button>
 
-        <button class="btn btn-primary mb-3" id="addUserBtn" data-toggle="modal" data-target="#addUserModal">
-          <i class="fas fa-user-plus"></i> Add User
-        </button>
-
-        <div class="table-responsive">
-          <table class="table table-bordered" id="usersTable" width="100%" cellspacing="0">
-            <thead>
-              <tr>
-                <th>Profile</th>
-                <th>Username</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-            </tbody>
-          </table>
+          <div class="table-responsive">
+            <table class="table table-bordered" id="usersTable" width="100%" cellspacing="0">
+              <thead>
+                <tr>
+                  <th>Profile</th>
+                  <th>Username</th>
+                  
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
         </div>
       </div>
-      <!-- End Page Content -->
     </div>
   </div>
-</div>
 
-<!-- Logout Modal -->
-<div class="modal fade" id="logoutModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document"><div class="modal-content">
-    <div class="modal-header">
-      <h5 class="modal-title" id="exampleModalLabel">Ready to Leave?</h5>
-      <button class="close" type="button" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
+  <!-- Add User Modal -->
+  <div class="modal fade" id="addUserModal" tabindex="-1" role="dialog" aria-labelledby="addUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <form id="formAddUser" novalidate>
+          <div class="modal-header">
+            <h5 class="modal-title" id="addUserModalLabel">Add New User</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group"><label for="addUsername">Username</label><input type="text" class="form-control" id="addUsername" required /></div>
+            <div class="form-group"><label for="addFirstName">First Name</label><input type="text" class="form-control" id="addFirstName" required /></div>
+            <div class="form-group"><label for="addLastName">Last Name</label><input type="text" class="form-control" id="addLastName" required /></div>
+            <div class="form-group"><label for="addEmail">Email</label><input type="email" class="form-control" id="addEmail" required /></div>
+            <div class="form-group"><label for="addRole">Role</label>
+              <select class="form-control" id="addRole" required>
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <div class="form-group"><label for="addPassword">Password</label><input type="password" class="form-control" id="addPassword" autocomplete="new-password" required /></div>
+            <div class="form-group"><label for="addConfirmPassword">Confirm Password</label><input type="password" class="form-control" id="addConfirmPassword" autocomplete="new-password" required /></div>
+          </div>
+          <div class="modal-footer">
+            <button type="submit" class="btn btn-primary">Add User</button>
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+          </div>
+        </form>
+      </div>
     </div>
-    <div class="modal-body">Select "Logout" below if you are ready to end your current session.</div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancel</button>
-      <a class="btn btn-primary" href="login.html">Logout</a>
+  </div>
+
+  <!-- Edit User Modal -->
+  <div class="modal fade" id="editUserModal" tabindex="-1" role="dialog" aria-labelledby="editUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <form id="formEditUser" novalidate>
+          <div class="modal-header">
+            <h5 class="modal-title" id="editUserModalLabel">Edit User</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">×</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="editUserId" />
+            <div class="form-group"><label for="editUsername">Username</label><input type="text" class="form-control" id="editUsername" required /></div>
+            <div class="form-group"><label for="editFirstName">First Name</label><input type="text" class="form-control" id="editFirstName" required /></div>
+            <div class="form-group"><label for="editLastName">Last Name</label><input type="text" class="form-control" id="editLastName" required /></div>
+            <div class="form-group"><label for="editEmail">Email</label><input type="email" class="form-control" id="editEmail" required /></div>
+            <div class="form-group"><label for="editRole">Role</label>
+              <select class="form-control" id="editRole" required>
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <div class="form-group"><label for="editPassword">Password</label><input type="password" class="form-control" id="editPassword" autocomplete="new-password" /></div>
+            <div class="form-group"><label for="editConfirmPassword">Confirm Password</label><input type="password" class="form-control" id="editConfirmPassword" autocomplete="new-password" /></div>
+          </div>
+          <div class="modal-footer">
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+          </div>
+        </form>
+      </div>
     </div>
-  </div></div>
-</div>
+  </div>
 
-<!-- Add User Modal -->
-<div class="modal fade" id="addUserModal" tabindex="-1" role="dialog" aria-labelledby="addUserModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document"><div class="modal-content">
-    <form id="formAddUser" novalidate>
-      <div class="modal-header">
-        <h5 class="modal-title" id="addUserModalLabel">Add New User</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label for="addUsername">Username</label>
-          <input type="text" class="form-control" id="addUsername" required />
+  <!-- Modals (Logout, etc.) remain unchanged -->
+  <!-- Logout Modal -->
+  <div class="modal fade" id="logoutModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="exampleModalLabel">Ready to Leave?</h5>
+          <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">×</span>
+          </button>
         </div>
-        <div class="form-group">
-          <label for="addFirstName">First Name</label>
-          <input type="text" class="form-control" id="addFirstName" required />
-        </div>
-        <div class="form-group">
-          <label for="addLastName">Last Name</label>
-          <input type="text" class="form-control" id="addLastName" required />
-        </div>
-        <div class="form-group">
-          <label for="addPassword">Password</label>
-          <input type="password" class="form-control" id="addPassword" autocomplete="new-password" required />
-        </div>
-        <div class="form-group">
-          <label for="addConfirmPassword">Confirm Password</label>
-          <input type="password" class="form-control" id="addConfirmPassword" autocomplete="new-password" required />
+        <div class="modal-body">Select "Logout" below if you are ready to end your current session.</div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancel</button>
+          <a class="btn btn-primary" href="login.html">Logout</a>
         </div>
       </div>
-      <div class="modal-footer">
-        <button type="submit" class="btn btn-primary">Add User</button>
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-      </div>
-    </form>
-  </div></div>
-</div>
+    </div>
+  </div>
 
-<!-- Edit User Modal (popup) -->
-<div class="modal fade" id="editUserModal" tabindex="-1" role="dialog" aria-labelledby="editUserModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document"><div class="modal-content">
-    <form id="formEditUser" novalidate>
-      <div class="modal-header">
-        <h5 class="modal-title" id="editUserModalLabel">Edit User</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-      </div>
-      <div class="modal-body">
-        <input type="hidden" id="editUserId" />
-        <div class="form-group">
-          <label for="editUsername">Username</label>
-          <input type="text" class="form-control" id="editUsername" required />
-        </div>
-        <div class="form-group">
-          <label for="editFirstName">First Name</label>
-          <input type="text" class="form-control" id="editFirstName" required />
-        </div>
-        <div class="form-group">
-          <label for="editLastName">Last Name</label>
-          <input type="text" class="form-control" id="editLastName" required />
-        </div>
-        <div class="form-group">
-          <label for="editPassword">Password</label>
-          <input type="password" class="form-control" id="editPassword" autocomplete="new-password" />
-        </div>
-        <div class="form-group">
-          <label for="editConfirmPassword">Confirm Password</label>
-          <input type="password" class="form-control" id="editConfirmPassword" autocomplete="new-password" />
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="submit" class="btn btn-primary">Save Changes</button>
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-      </div>
-    </form>
-  </div></div>
-</div>
 
-<!-- Scripts -->
-<script src="vendor/jquery/jquery.min.js"></script>
-<script src="vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
-<script src="vendor/jquery-easing/jquery.easing.min.js"></script>
-<script src="js/sb-admin-2.min.js"></script>
-<script src="vendor/datatables/jquery.dataTables.min.js"></script>
-<script src="vendor/datatables/dataTables.bootstrap4.min.js"></script>
+  <script src="vendor/jquery/jquery.min.js"></script>
+  <script src="vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="vendor/jquery-easing/jquery.easing.min.js"></script>
+  <script src="js/sb-admin-2.min.js"></script>
+  <script src="vendor/datatables/jquery.dataTables.min.js"></script>
+  <script src="vendor/datatables/dataTables.bootstrap4.min.js"></script>
 
-<script>
-$(document).ready(function() {
-    const table = $('#usersTable').DataTable({
-        columnDefs: [{ orderable: false, targets: 2 }] // Disable ordering for Action column
+  <script type="module">
+  import { auth, db } from './firebase-config.js';
+  import {
+    collection, doc, getDocs, updateDoc, deleteDoc, getDoc,
+  } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
+  import { onAuthStateChanged, updateEmail } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
+
+  $(document).ready(function () {
+    const table = $('#usersTable').DataTable({ columnDefs: [{ orderable: false, targets: 2 }] });
+
+    async function loadUsers() {
+      table.clear();
+      const usersCol = collection(db, 'users');
+      try {
+        const snapshot = await getDocs(usersCol);
+
+        const rows = [];
+        snapshot.forEach((docSnap) => {
+          const user = docSnap.data();
+          const id = docSnap.id;
+          const profileImg = `<img src="${user.avatarUrl || 'img/undraw_profile.svg'}" alt="${user.username || ''}" class="profile-img" />`;
+          const usernameCell = `<span class="text-primary" style="cursor:pointer;" data-id="${id}">${user.username || ''}</span>`;
+          const deleteBtn = `<button class="btn btn-danger btn-sm delete-btn" data-id="${id}">Delete</button>`;
+          rows.push([profileImg, usernameCell, deleteBtn]);
+        });
+
+        table.rows.add(rows).draw();
+      } catch (error) {
+        console.error('Error loading users from Firestore:', error);
+        alert('Failed to load users. See console for details.');
+      }
+    }
+    loadUsers();
+
+    $('#formAddUser').submit(async function (e) {
+      e.preventDefault();
+      const form = this;
+      const username = $('#addUsername').val().trim();
+      const firstName = $('#addFirstName').val().trim();
+      const lastName = $('#addLastName').val().trim();
+      const email = $('#addEmail').val().trim();
+      const role = $('#addRole').val();
+      const password = $('#addPassword').val();
+      const confirmPassword = $('#addConfirmPassword').val();
+
+      if (!username || !firstName || !lastName || !email || !password || !confirmPassword) {
+        alert('Please fill out all fields.');
+        console.error('Add User validation failed: Missing fields.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        alert('Passwords do not match.');
+        console.error('Add User validation failed: Passwords do not match.');
+        return;
+      }
+
+      try {
+        const response = await fetch('http://localhost:3000/api/createUser', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, firstName, lastName, email, role, password }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          console.error('Add User API error:', data.error);
+          throw new Error(data.error || 'Failed to create user.');
+        }
+        alert('User created successfully!');
+        $('#addUserModal').modal('hide');
+        form.reset();
+        loadUsers();
+      } catch (err) {
+        console.error('Add user failed:', err);
+        alert('Add user failed: ' + err.message);
+      }
     });
 
-    let users = [
-        {id: 1, username: "john_doe", firstName: "John", lastName: "Doe", profileUrl: "img/undraw_profile.svg"},
-        {id: 2, username: "alice_smith", firstName: "Alice", lastName: "Smith", profileUrl: "img/undraw_profile.svg"}
-    ];
+$('#formEditUser').submit(async function (e) {
+  e.preventDefault();
+  const userId = $('#editUserId').val();
+  const username = $('#editUsername').val().trim();
+  const firstName = $('#editFirstName').val().trim();
+  const lastName = $('#editLastName').val().trim();
+  const email = $('#editEmail').val().trim();
+  const role = $('#editRole').val();
+  const password = $('#editPassword').val();
+  const confirmPassword = $('#editConfirmPassword').val();
 
-    function renderUsers() {
-        table.clear();
-        users.forEach(user => {
-            const profileImg = `<img src="${user.profileUrl}" alt="${user.username}" class="profile-img">`;
-            const usernameCell = `<span class="text-primary" style="cursor:pointer;" data-id="${user.id}">${user.username}</span>`;
-            const deleteBtn = `<button class="btn btn-danger btn-sm delete-btn" data-id="${user.id}">Delete</button>`;
-            table.row.add([profileImg, usernameCell, deleteBtn]);
-        });
-        table.draw();
+  if (!username || !firstName || !lastName || !email) {
+    alert('Please fill out all required fields.');
+    console.error('Edit User validation failed: Missing required fields.');
+    return;
+  }
+  if ((password || confirmPassword) && password !== confirmPassword) {
+    alert('Passwords do not match.');
+    console.error('Edit User validation failed: Passwords do not match.');
+    return;
+  }
+
+  try {
+    // Call backend to update Firebase Auth (email/displayName) AND Firestore user doc
+    const response = await fetch('http://localhost:3000/api/updateUser', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        uid: userId,
+        email,
+        username,
+        firstName,
+        lastName,
+        role,
+      }),
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      console.error('Update user API error:', result.error || result);
+      throw new Error(result.error || 'Failed to update user.');
     }
 
-    renderUsers();
+    // If password supplied, call password endpoint (unchanged)
+    if (password) {
+      try {
+        const pwResp = await fetch('http://localhost:3000/api/updateUserPassword', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid: userId, newPassword: password }),
+        });
+        const pwResult = await pwResp.json();
+        if (!pwResp.ok) {
+          console.error('Password update API error:', pwResult.error);
+          throw new Error(pwResult.error || 'Password update failed.');
+        }
+        console.log('Password updated successfully for user:', userId);
+      } catch (err) {
+        console.error('Password update failed:', err);
+        alert('Password update failed: ' + err.message);
+        return;
+      }
+    }
 
-    // Open Edit Modal with data
-    function openEditModal(userId) {
-        const user = users.find(u => u.id === userId);
-        if(!user) return;
-        $('#editUserId').val(user.id);
+    $('#editUserModal').modal('hide');
+    // If the currently signed-in admin updated their own email, local client auth state may be stale.
+    // We attempt to update the client-side auth user if possible; if it fails, user may need to re-login.
+    const currentUser = auth.currentUser;
+    if (currentUser && currentUser.uid === userId && currentUser.email !== email) {
+      try {
+        // This may require recent login; catch errors but continue.
+        await updateEmail(currentUser, email);
+        console.log('Local auth email updated for currently signed-in user.');
+      } catch (err) {
+        console.warn('Could not update client-side auth email; user may need to re-login.', err);
+        // don't block UI - just let admin know
+        alert('Email was updated on the server. You may need to sign out and sign in again for the change to fully take effect.');
+      }
+    }
+
+    loadUsers();
+  } catch (error) {
+    console.error('Edit user failed:', error);
+    alert('Edit user failed: ' + error.message);
+  }
+});
+
+
+$('#usersTable tbody').on('click', 'button.delete-btn', async function () {
+  const userId = $(this).data('id');
+  if (!userId) return;
+
+  if (confirm('Are you sure you want to delete this user? This will remove the account from both Auth and Firestore.')) {
+    try {
+      const resp = await fetch('http://localhost:3000/api/deleteUser', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: userId }),
+      });
+
+      const result = await resp.json();
+      if (!resp.ok) {
+        console.error('Delete user API error:', result.error || result);
+        throw new Error(result.error || 'Delete failed.');
+      }
+
+      alert('User deleted successfully.');
+      loadUsers();
+    } catch (error) {
+      console.error('Delete failed:', error);
+      alert('Delete failed: ' + error.message);
+    }
+  }
+});
+
+
+    $('#usersTable tbody').on('click', 'span.text-primary', function () {
+      const userId = $(this).data('id');
+      openEditModal(userId);
+    });
+
+    async function openEditModal(userId) {
+      try {
+        const userDocRef = doc(db, 'users', userId);
+        const docSnap = await getDoc(userDocRef);
+        if (!docSnap.exists()) {
+          alert('User does not exist.');
+          console.error('Open edit modal error: User does not exist - UID:', userId);
+          return;
+        }
+        const user = docSnap.data();
+        $('#editUserId').val(userId);
         $('#editUsername').val(user.username);
         $('#editFirstName').val(user.firstName);
         $('#editLastName').val(user.lastName);
+        $('#editEmail').val(user.email);
+        $('#editRole').val(user.role || 'user');
         $('#editPassword').val('');
         $('#editConfirmPassword').val('');
         $('#editUserModal').modal('show');
+      } catch (error) {
+        console.error('Open edit modal failed:', error);
+        alert('Failed to open edit modal: ' + error.message);
+      }
     }
 
-    // Username click to open edit modal
-    $('#usersTable tbody').on('click', 'span.text-primary', function() {
-        const userId = parseInt($(this).data('id'), 10);
-        openEditModal(userId);
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        $('#topbarUsername').text(user.displayName || (user.email ? user.email.split('@')[0] : 'User'));
+        $('#topbarAvatar').attr('src', user.photoURL || 'img/undraw_profile.svg');
+      } else {
+        $('#topbarUsername').text('Guest');
+        $('#topbarAvatar').attr('src', 'img/undraw_profile.svg');
+      }
     });
-
-    // Delete button click
-    $('#usersTable tbody').on('click', 'button.delete-btn', function() {
-        const userId = parseInt($(this).data('id'), 10);
-        if(confirm('Are you sure you want to delete this user?')) {
-            users = users.filter(u => u.id !== userId);
-            renderUsers();
-        }
-    });
-
-    // Add User form submit
-    $('#formAddUser').submit(function(e) {
-        e.preventDefault();
-        const username = $('#addUsername').val().trim();
-        const firstName = $('#addFirstName').val().trim();
-        const lastName = $('#addLastName').val().trim();
-        const password = $('#addPassword').val();
-        const confirmPassword = $('#addConfirmPassword').val();
-
-        if(!username || !firstName || !lastName || !password || !confirmPassword) {
-            alert('Please fill out all fields.');
-            return;
-        }
-        if(password !== confirmPassword) {
-            alert('Passwords do not match.');
-            return;
-        }
-
-        const newUser = {
-            id: users.length ? Math.max(...users.map(u => u.id)) + 1 : 1,
-            username,
-            firstName,
-            lastName,
-            profileUrl: "img/undraw_profile.svg"
-        };
-        users.push(newUser);
-        renderUsers();
-        $('#addUserModal').modal('hide');
-        this.reset();
-    });
-
-    // Edit User form submit
-    $('#formEditUser').submit(function(e) {
-        e.preventDefault();
-        const userId = parseInt($('#editUserId').val(), 10);
-        const username = $('#editUsername').val().trim();
-        const firstName = $('#editFirstName').val().trim();
-        const lastName = $('#editLastName').val().trim();
-        const password = $('#editPassword').val();
-        const confirmPassword = $('#editConfirmPassword').val();
-
-        if(!username || !firstName || !lastName) {
-            alert('Please fill out all fields except password if you do not want to change it.');
-            return;
-        }
-        if((password || confirmPassword) && password !== confirmPassword) {
-            alert('Passwords do not match.');
-            return;
-        }
-
-        const user = users.find(u => u.id === userId);
-        if(!user) return;
-
-        user.username = username;
-        user.firstName = firstName;
-        user.lastName = lastName;
-        user.password = password ? password : user.password;
-
-        renderUsers();
-        $('#editUserModal').modal('hide');
-    });
-});
+  });
 </script>
+
+  
 </body>
 </html>
