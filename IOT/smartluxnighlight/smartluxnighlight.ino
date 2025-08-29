@@ -92,27 +92,30 @@ void loop() {
   }
 
   if (ledsActive) {
-
-    if (temperature < coldThreshold) {
-      bluePWM = brightness;
-    }
-    else if (temperature > hotThreshold) {
-      redPWM   = brightness;
-      greenPWM = brightness * 0.45;
-    }
-    else {
+    if (!isnan(temperature)) {
+      if (temperature < coldThreshold) {
+        bluePWM = brightness;
+      } else if (temperature > hotThreshold) {
+        redPWM   = brightness;
+        greenPWM = (int)(brightness * 0.45);
+      } else {
+        greenPWM = brightness;
+      }
+    } else {
       greenPWM = brightness;
     }
-
   }
 
   analogWrite(redPin,   redPWM);
   analogWrite(greenPin, greenPWM);
   analogWrite(bluePin,  bluePWM);
 
- //debug
- Serial.printf("LDR=%d  Motion=%d  Brightness=%d  Temp=%.1f°C  Hum=%.1f%%  LED[R,G,B]=[%d,%d,%d]\n",
-                lightValue, motionDetected, brightness, temperature, humidity, redPWM, greenPWM, bluePWM);
+  // debug
+  Serial.printf("LDR=%d  Motion=%d  Brightness=%d  Temp=%.1f°C  Hum=%.1f%%  LED[R,G,B]=[%d,%d,%d]\n",
+                lightValue, motionDetected, brightness,
+                (isnan(temperature) ? 0.0 : temperature),
+                (isnan(humidity) ? 0.0 : humidity),
+                redPWM, greenPWM, bluePWM);
 
   // Send to Firebase periodically
   if (millis() - lastSendTime >= sendInterval) {
