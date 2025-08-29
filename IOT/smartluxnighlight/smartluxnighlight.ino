@@ -1,3 +1,5 @@
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <DHT.h>
 #define DHTType DHT11
 
@@ -20,6 +22,9 @@ const unsigned long motionTimeout = 60000; // milisecond tips 1 min = 60000 mili
 unsigned long lastMotionTime = 0;
 bool ledsActive = false;
 
+const char* WIFI_SSID     = "secret";
+const char* WIFI_PASSWORD = "secret";
+
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
@@ -33,6 +38,8 @@ void setup() {
   analogWrite(redPin,   0);
   analogWrite(greenPin, 0);
   analogWrite(bluePin,  0);
+
+  connectWiFi();
 
 }
 
@@ -80,4 +87,23 @@ void loop() {
  Serial.printf("LDR=%d  Motion=%d  Brightness=%d  Temp=%.1f°C  Hum=%.1f%%  LED[R,G,B]=[%d,%d,%d]\n",
                 lightValue, motionDetected, brightness, temperature, humidity, redPWM, greenPWM, bluePWM);
  delay(2000);
+}
+
+void connectWiFi() {
+  Serial.printf("Connecting to WiFi '%s' ...\n", WIFI_SSID);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+  unsigned long start = millis();
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+    // Optional timeout to allow retry loop rather than blocking forever
+    if (millis() - start > 15000) {
+      Serial.println("\nWiFi connect timed out; retrying...");
+      start = millis();
+    }
+  }
+  Serial.println();
+  Serial.print("WiFi connected. IP: ");
+  Serial.println(WiFi.localIP());
 }
