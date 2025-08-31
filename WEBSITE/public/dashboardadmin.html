@@ -35,6 +35,29 @@
 	margin-right: 18px;
 }
 
+/* Legend dot + spacing for users legend */
+#usersLegend .legend-item {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 12px;
+  font-size: 0.85rem;
+  color: #6b6b6b;
+}
+#usersLegend .legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 8px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.04) inset;
+}
+#usersLegend .legend-count {
+  margin-left: 6px;
+  color: #333;
+  font-weight: 600;
+}
+
+
 </style>
 	
 	
@@ -335,14 +358,14 @@
                                             data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                             <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
                                         </a>
-                                        <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in"
-                                            aria-labelledby="dropdownMenuLink">
-                                            <div class="dropdown-header">Dropdown Header:</div>
-                                            <a class="dropdown-item" href="#">Action</a>
-                                            <a class="dropdown-item" href="#">Another action</a>
-                                            <div class="dropdown-divider"></div>
-                                            <a class="dropdown-item" href="#">Something else here</a>
-                                        </div>
+										<div class="dropdown-menu dropdown-menu-right shadow animated--fade-in"
+											aria-labelledby="dropdownMenuLink">
+											<a class="dropdown-item" href="#">Action</a>
+											<a class="dropdown-item" href="#">Another action</a>
+											<div class="dropdown-divider"></div>
+											<a class="dropdown-item" href="#">Something else here</a>
+										</div>
+
                                     </div>
                                 </div>
 								
@@ -353,17 +376,9 @@
                                     <div class="chart-pie pt-4 pb-2">
                                         <canvas id="myPieChart"></canvas>
                                     </div>
-                                    <div class="mt-4 text-center small">
-                                        <span class="mr-2">
-                                            <i class="fas fa-circle text-primary"></i> Direct
-                                        </span>
-                                        <span class="mr-2">
-                                            <i class="fas fa-circle text-success"></i> Social
-                                        </span>
-                                        <span class="mr-2">
-                                            <i class="fas fa-circle text-info"></i> Referral
-                                        </span>
-                                    </div>
+									
+										<div id="usersLegend" class="mt-4 text-center small"></div>
+
                                 </div>
                             </div>
                         </div>
@@ -424,215 +439,247 @@
             <!-- Page level plugins -->
             <script src="vendor/chart.js/Chart.min.js"></script>
             <!-- Page level custom scripts -->
-            <script>
-        // Area Chart: Temperature (Celcius)
-        var ctx1 = document.getElementById("myAreaChart1").getContext('2d');
-        new Chart(ctx1, {
-            type: 'line',
-            data: {
-                labels: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
-                datasets: [{
-                    label: "Temperature",
-                    lineTension: 0.3,
-                    backgroundColor: "rgba(255, 99, 132, 0.05)",
-                    borderColor: "rgba(255,99,132,1)",
-                    pointRadius: 3,
-                    pointBackgroundColor: "rgba(255,99,132,1)",
-                    pointBorderColor: "rgba(255,99,132,1)",
-                    pointHoverRadius: 3,
-                    pointHoverBackgroundColor: "rgba(255,99,132,1)",
-                    pointHoverBorderColor: "rgba(255,99,132,1)",
-                    pointHitRadius: 10,
-                    pointBorderWidth: 2,
-                    data: [26,27,29,30,34,35,33,33,32,28,26,25] // Celcius
-                }]
-            },
-            options: {
-                maintainAspectRatio: false,
-                layout: {padding: {left: 10, right: 25, top: 25, bottom: 0}},
-                scales: {
-                    xAxes: [{gridLines: {display: false}}],
-                    yAxes: [{
-                        ticks: {
-                            maxTicksLimit: 7,
-                            padding: 10,
-                            callback: function(value) {return value + '°C';}
-                        },
-                        gridLines: {
-                            color: "rgb(234, 236, 244)",
-                            zeroLineColor: "rgb(234, 236, 244)",
-                            drawBorder: false,
-                            borderDash: [2],
-                            zeroLineBorderDash: [2]
-                        }
-                    }]
-                },
-                legend: {display: false},
-                tooltips: {
-                    callbacks: {
-                        label: function(tooltipItem, chart) {
-                            var datasetLabel = chart.datasets[tooltipItem.datasetIndex].label || '';
-                            return datasetLabel + ': ' + tooltipItem.yLabel + '°C';
-                        }
-                    }
-                }
-            }
-        });
-        // Area Chart: Humidity (%)
-        var ctx2 = document.getElementById("myAreaChart2").getContext('2d');
-        new Chart(ctx2, {
-            type: 'line',
-            data: {
-                labels: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
-                datasets: [{
-                    label: "Humidity",
-                    lineTension: 0.3,
-                    backgroundColor: "rgba(54, 162, 235, 0.05)",
-                    borderColor: "rgba(54,162,235,1)",
-                    pointRadius: 3,
-                    pointBackgroundColor: "rgba(54,162,235,1)",
-                    pointBorderColor: "rgba(54,162,235,1)",
-                    pointHoverRadius: 3,
-                    pointHoverBackgroundColor: "rgba(54,162,235,1)",
-                    pointHoverBorderColor: "rgba(54,162,235,1)",
-                    pointHitRadius: 10,
-                    pointBorderWidth: 2,
-                    data: [78, 74, 72, 70, 69, 63, 60, 61, 63, 71, 76, 78] // Percentage
-                }]
-            },
-            options: {
-                maintainAspectRatio: false,
-                layout: {padding: {left: 10, right: 25, top: 25, bottom: 0}},
-                scales: {
-                    xAxes: [{gridLines: {display: false}}],
-                    yAxes: [{
-                        ticks: {
-                            maxTicksLimit: 7,
-                            padding: 10,
-                            callback: function(value) {return value + '%';}
-                        },
-                        gridLines: {
-                            color: "rgb(234, 236, 244)",
-                            zeroLineColor: "rgb(234, 236, 244)",
-                            drawBorder: false,
-                            borderDash: [2],
-                            zeroLineBorderDash: [2]
-                        }
-                    }]
-                },
-                legend: {display: false},
-                tooltips: {
-                    callbacks: {
-                        label: function(tooltipItem, chart) {
-                            var datasetLabel = chart.datasets[tooltipItem.datasetIndex].label || '';
-                            return datasetLabel + ': ' + tooltipItem.yLabel + '%';
-                        }
-                    }
-                }
-            }
-        });
-        // Bar Chart: Motion (Count)
-        var ctxMotion = document.getElementById("myBarChartMotion").getContext('2d');
-        new Chart(ctxMotion, {
-            type: 'bar',
-            data: {
-                labels: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
-                datasets: [{
-                    label: "Motion",
-                    backgroundColor: "rgba(255, 206, 86, 0.7)",
-                    borderColor: "rgba(255,206,86,1)",
-                    borderWidth: 1,
-                    data: [15,21,22,27,20,32,28,30,29,19,18,15] // Counts/events
-                }]
-            },
-            options: {
-                maintainAspectRatio: false,
-                scales: {
-                    xAxes: [{
-                        gridLines: {display: false},
-                        barPercentage: 0.6
-                    }],
-                    yAxes: [{
-                        ticks: {
-                            beginAtZero:true,
-                            maxTicksLimit: 7,
-                            padding: 10
-                        },
-                        gridLines: {
-                            color: "rgb(234, 236, 244)",
-                            zeroLineColor: "rgb(234, 236, 244)",
-                            drawBorder: false,
-                            borderDash: [2],
-                            zeroLineBorderDash: [2]
-                        }
-                    }]
-                },
-                legend: {display: false},
-                tooltips: {
-                    callbacks: {
-                        label: function(tooltipItem, chart) {
-                            var datasetLabel = chart.datasets[tooltipItem.datasetIndex].label || '';
-                            return datasetLabel + ': ' + tooltipItem.yLabel + ' times';
-                        }
-                    }
-                }
-            }
-        });
-        // Area Chart: Light (Lux)
-        var ctx4 = document.getElementById("myAreaChart4").getContext('2d');
-        new Chart(ctx4, {
-            type: 'line',
-            data: {
-                labels: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
-                datasets: [{
-                    label: "Light",
-                    lineTension: 0.3,
-                    backgroundColor: "rgba(75, 192, 192,0.05)",
-                    borderColor: "rgba(75,192,192,1)",
-                    pointRadius: 3,
-                    pointBackgroundColor: "rgba(75,192,192,1)",
-                    pointBorderColor: "rgba(75,192,192,1)",
-                    pointHoverRadius: 3,
-                    pointHoverBackgroundColor: "rgba(75,192,192,1)",
-                    pointHoverBorderColor: "rgba(75,192,192,1)",
-                    pointHitRadius: 10,
-                    pointBorderWidth: 2,
-                    data: [140,180,150,175,160,200,170,210,195,220,210,230] // Lux
-                }]
-            },
-            options: {
-                maintainAspectRatio: false,
-                layout: {padding: {left: 10, right: 25, top: 25, bottom: 0}},
-                scales: {
-                    xAxes: [{gridLines: {display: false}}],
-                    yAxes: [{
-                        ticks: {
-                            maxTicksLimit: 7,
-                            padding: 10,
-                            callback: function(value) {return value + ' lx';}
-                        },
-                        gridLines: {
-                            color: "rgb(234, 236, 244)",
-                            zeroLineColor: "rgb(234, 236, 244)",
-                            drawBorder: false,
-                            borderDash: [2],
-                            zeroLineBorderDash: [2]
-                        }
-                    }]
-                },
-                legend: {display: false},
-                tooltips: {
-                    callbacks: {
-                        label: function(tooltipItem, chart) {
-                            var datasetLabel = chart.datasets[tooltipItem.datasetIndex].label || '';
-                            return datasetLabel + ': ' + tooltipItem.yLabel + ' lx';
-                        }
-                    }
-                }
-            }
-        });
-    </script>
-	<script src="js/demo/chart-pie-demo.js"></script>
+
+<script type="module">
+/*
+  Robust RTDB fetch + Chart.js updater.
+  Replace the existing <script type="module"> that populates the charts.
+*/
+
+import { rtdb } from './firebase-config.js';
+import { ref as dbRef, query, orderByChild, limitToLast, get, onValue } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js';
+
+const DEVICE_ID = 'device01';   // change as needed
+const SAMPLE_LIMIT = 120;
+const REF_PATH = `devices/${DEVICE_ID}/sensors`;
+const REF = dbRef(rtdb, REF_PATH);
+
+// Chart canvases (remain same as your HTML)
+const ctxTemp = document.getElementById('myAreaChart1').getContext('2d');
+const ctxHum  = document.getElementById('myAreaChart2').getContext('2d');
+const ctxMotion = document.getElementById('myBarChartMotion').getContext('2d');
+const ctxLdr  = document.getElementById('myAreaChart4').getContext('2d');
+
+// (Re)use helper chart creators from previous script
+function createLineChart(ctx, label, unit, borderColorRGBA, bgColorRGBA) {
+  return new Chart(ctx, {
+    type: 'line',
+    data: { labels: [], datasets: [{ label, data: [], lineTension: 0.3, backgroundColor: bgColorRGBA, borderColor: borderColorRGBA, pointRadius: 3, pointHitRadius: 10 }] },
+    options: {
+      maintainAspectRatio: false,
+      layout: { padding: { left: 10, right: 25, top: 25, bottom: 0 } },
+      scales: {
+        xAxes: [{ gridLines: { display: false } }],
+        yAxes: [{ ticks: { maxTicksLimit: 7, padding: 10, callback: (v) => (v + (unit || '')) }, gridLines: { color: 'rgb(234,236,244)', zeroLineColor: 'rgb(234,236,244)', drawBorder: false, borderDash: [2], zeroLineBorderDash: [2] } }]
+      },
+      legend: { display: false },
+      tooltips: {
+        callbacks: {
+          label: function(tooltipItem, c) { const ds = c.datasets[tooltipItem.datasetIndex]; return ds.label + ': ' + tooltipItem.yLabel + (unit || ''); }
+        }
+      }
+    }
+  });
+}
+
+function createBarChart(ctx, label, unit, bgColor, borderColor) {
+  return new Chart(ctx, {
+    type: 'bar',
+    data: { labels: [], datasets: [{ label, data: [], backgroundColor: bgColor, borderColor, borderWidth: 1 }] },
+    options: {
+      maintainAspectRatio: false,
+      scales: { xAxes: [{ gridLines: { display: false }, barPercentage: 0.6 }], yAxes: [{ ticks: { beginAtZero:true, maxTicksLimit: 7, padding: 10, callback: (v) => (v + (unit || '')) }, gridLines: { color: 'rgb(234,236,244)', zeroLineColor: 'rgb(234,236,244)', drawBorder: false, borderDash: [2] } }] },
+      legend: { display: false }
+    }
+  });
+}
+
+const chartTemp = createLineChart(ctxTemp, 'Temperature', '°C', 'rgba(255,99,132,1)', 'rgba(255,99,132,0.05)');
+const chartHum  = createLineChart(ctxHum,  'Humidity', '%', 'rgba(54,162,235,1)', 'rgba(54,162,235,0.05)');
+const chartLdr  = createLineChart(ctxLdr,  'Light', ' lx', 'rgba(75,192,192,1)', 'rgba(75,192,192,0.05)');
+const chartMotion = createBarChart(ctxMotion, 'Motion', ' times', 'rgba(255,206,86,0.7)', 'rgba(255,206,86,1)');
+
+function snapshotToArray(obj) {
+  if (!obj) return [];
+  return Object.entries(obj).map(([key, val]) => ({ key, ...(val || {}) }))
+    .sort((a,b) => {
+      const ta = ('timestamp_ms' in a) ? a.timestamp_ms : (('timestamp' in a) ? a.timestamp * 1000 : 0);
+      const tb = ('timestamp_ms' in b) ? b.timestamp_ms : (('timestamp' in b) ? b.timestamp * 1000 : 0);
+      return ta - tb;
+    });
+}
+
+function buildSeries(samples) {
+  const labels = [], tempData = [], humData = [], ldrData = [], motionData = [];
+
+  samples.forEach(s => {
+    // Prefer ts_iso if present and looks valid
+    let tsMs = null;
+    if (s.ts_iso && typeof s.ts_iso === 'string' && s.ts_iso.length >= 10) {
+      const parsed = Date.parse(s.ts_iso);
+      if (!Number.isNaN(parsed)) tsMs = parsed;
+    }
+
+    // Fallback to timestamp_ms (handle if it was saved in seconds by mistake)
+    if (tsMs === null && (s.timestamp_ms || s.timestamp_ms === 0)) {
+      const v = Number(s.timestamp_ms);
+      // If value looks like seconds (<= 1e10), multiply by 1000
+      tsMs = (v > 1e11) ? v : (v > 1e9 ? v : v * 1000);
+    }
+
+    // Fallback to timestamp (seconds)
+    if (tsMs === null && (s.timestamp || s.timestamp === 0)) {
+      const v = Number(s.timestamp);
+      tsMs = v * 1000;
+    }
+
+    // Final fallback to now
+    if (tsMs === null) tsMs = Date.now();
+
+    const d = new Date(tsMs);
+    labels.push(d.toLocaleString()); // friendly label; change to ISO if you prefer
+
+    tempData.push((typeof s.temperature === 'number') ? s.temperature : null);
+    humData.push((typeof s.humidity === 'number') ? s.humidity : null);
+    ldrData.push((typeof s.ldr === 'number') ? s.ldr : null);
+    motionData.push(s.motion ? 1 : 0);
+  });
+
+  return { labels, tempData, humData, ldrData, motionData };
+}
+
+
+function updateCharts(series) {
+  chartTemp.data.labels = series.labels;
+  chartTemp.data.datasets[0].data = series.tempData;
+  chartTemp.update();
+
+  chartHum.data.labels = series.labels;
+  chartHum.data.datasets[0].data = series.humData;
+  chartHum.update();
+
+  chartLdr.data.labels = series.labels;
+  chartLdr.data.datasets[0].data = series.ldrData;
+  chartLdr.update();
+
+  chartMotion.data.labels = series.labels;
+  chartMotion.data.datasets[0].data = series.motionData;
+  chartMotion.update();
+}
+
+/* Primary fetch using SDK query */
+async function fetchSensorHistorySDK() {
+  try {
+    const q = query(REF, orderByChild('timestamp'), limitToLast(SAMPLE_LIMIT));
+    const snap = await get(q); // may throw
+    if (!snap.exists()) {
+      console.log('No sensor data found for', REF_PATH);
+      return [];
+    }
+    const obj = snap.val();
+    const arr = snapshotToArray(obj);
+    return arr;
+  } catch (err) {
+    // Let caller know what failed — SDK errors sometimes wrap HTTP details.
+    console.error('fetchSensorHistory (SDK) error:', err);
+    throw err;
+  }
+}
+
+/* Fallback: REST fetch with properly encoded orderBy param (orderBy="%22timestamp%22") */
+async function fetchSensorHistoryREST() {
+  try {
+    // derive DB URL from initialized app via rtdb object
+    const dbUrl = (rtdb && rtdb.app && rtdb.app.options && rtdb.app.options.databaseURL) ? rtdb.app.options.databaseURL : null;
+    if (!dbUrl) throw new Error('Cannot determine databaseURL from firebase app instance.');
+
+    // ensure no trailing slash
+    let base = dbUrl;
+    if (base.endsWith('/')) base = base.slice(0, -1);
+
+    // orderBy must be quoted string ("%22timestamp%22")
+    const orderByParam = '%22timestamp%22';
+    const url = `${base}/devices/${encodeURIComponent(DEVICE_ID)}/sensors.json?orderBy=${orderByParam}&limitToLast=${SAMPLE_LIMIT}`;
+
+    console.log('Attempting REST fallback URL:', url);
+    const res = await fetch(url, { method: 'GET' });
+    const text = await res.text();
+    let json = null;
+    try { json = text ? JSON.parse(text) : null; } catch (e) { console.warn('REST response not JSON:', text); }
+
+    if (!res.ok) {
+      console.error('REST fetch failed:', res.status, res.statusText, json || text);
+      throw new Error(`REST fetch failed with status ${res.status}`);
+    }
+
+    if (!json) {
+      console.log('REST returned no data (null) for', DEVICE_ID);
+      return [];
+    }
+
+    // json is object of push keys -> values
+    const arr = snapshotToArray(json);
+    return arr;
+  } catch (err) {
+    console.error('fetchSensorHistory (REST) error:', err);
+    throw err;
+  }
+}
+
+/* High-level fetch: try SDK then fallback to REST and finally return [] */
+async function fetchSensorHistory() {
+  try {
+    return await fetchSensorHistorySDK();
+  } catch (sdkErr) {
+    // If SDK failed with a network/400 error, try REST
+    console.warn('SDK query failed; attempting REST fallback.', sdkErr && sdkErr.message ? sdkErr.message : sdkErr);
+    try {
+      return await fetchSensorHistoryREST();
+    } catch (restErr) {
+      console.error('Both SDK and REST fetch failed:', restErr);
+      return [];
+    }
+  }
+}
+
+// initial load + attach realtime listener (SDK-based)
+async function refreshCharts() {
+  try {
+    const samples = await fetchSensorHistory();
+    const series = buildSeries(samples);
+    updateCharts(series);
+  } catch (err) {
+    console.error('fetchSensorHistory error', err);
+  }
+}
+
+refreshCharts();
+
+// attach realtime (recommended). If realtime subscription errors, fallback polling will still update charts.
+try {
+  const qRealtime = query(REF, orderByChild('timestamp'), limitToLast(SAMPLE_LIMIT));
+  onValue(qRealtime, (snapshot) => {
+    if (!snapshot.exists()) {
+      console.log('Realtime listener: no data');
+      updateCharts(buildSeries([]));
+      return;
+    }
+    const arr = snapshotToArray(snapshot.val());
+    updateCharts(buildSeries(arr));
+  }, (e) => {
+    console.error('Realtime listener error', e);
+  });
+} catch (e) {
+  console.warn('Failed to attach realtime listener (will rely on polling):', e);
+}
+
+// polling fallback
+setInterval(refreshCharts, 15000);
+
+</script>
+
+<script type="module" src="./users-logincount-pie.js"></script>
+
 	
 	<script type="module">
   import { auth, db } from './firebase-config.js';
