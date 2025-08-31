@@ -13,27 +13,27 @@
         rel="stylesheet" />
     <!-- Custom styles for this template-->
     <link href="css/sb-admin-2.min.css" rel="stylesheet" />
-	
-	<style>
+    
+    <style>
 
 .sidebar-logo-img {
     width: 60px;
     height: auto;
     margin-right: 0px; /* Decrease to bring text closer */
-	margin-top: 15px;
-	margin-left: 0px;
-	
+    margin-top: 15px;
+    margin-left: 0px;
+    
 }
 
 .sidebar-brand-text {
     font-size: 12px; /* Smaller text */
     margin-left: 0;  /* Ensure no left margin */
-	margin-right: 18px;
+    margin-right: 18px;
 }
 
 </style>
-	
-	
+    
+    
 </head>
 <body id="page-top">
     <!-- Page Wrapper -->
@@ -41,13 +41,13 @@
         <!-- Sidebar -->
         <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
             
-			<!-- Sidebar - Brand -->
+            	<!-- Sidebar - Brand -->
            <a class="sidebar-brand d-flex align-items-center justify-content-center" href="dashboard.html">
-			<img src="img/LOGONT.png" alt="Logo" class="sidebar-logo-img" />
-			<div class="sidebar-brand-text" style="font-size:15px;">SMARTLUX NIGHT LIGHT</div>
-			</a>
-			
-			
+            <img src="img/LOGONT.png" alt="Logo" class="sidebar-logo-img" />
+            <div class="sidebar-brand-text" style="font-size:15px;">SMARTLUX NIGHT LIGHT</div>
+            </a>
+            
+            
             <!-- Divider -->
             <hr class="sidebar-divider my-0" />
             <!-- Nav Item - Dashboard -->
@@ -187,13 +187,13 @@
                         <div class="topbar-divider d-none d-sm-block"></div>
                         <!-- Nav Item - User Information -->
                         <li class="nav-item dropdown no-arrow">
-						  <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-toggle="dropdown"
-							 aria-haspopup="true" aria-expanded="false">
-							<!-- give this span an id so we can update it -->
-							<span id="topbarUsername" class="mr-2 d-none d-lg-inline text-gray-600 small">First User</span>
-							<!-- give this img an id so we can update it -->
-							<img id="topbarAvatar" class="img-profile rounded-circle" src="img/undraw_profile.svg" />
-						  </a>
+                          <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-toggle="dropdown"
+                             aria-haspopup="true" aria-expanded="false">
+                            <!-- give this span an id so we can update it -->
+                            <span id="topbarUsername" class="mr-2 d-none d-lg-inline text-gray-600 small">First User</span>
+                            <!-- give this img an id so we can update it -->
+                            <img id="topbarAvatar" class="img-profile rounded-circle" src="img/undraw_profile.svg" />
+                          </a>
                             <!-- Dropdown - User Information -->
                             <div
                                 class="dropdown-menu dropdown-menu-right shadow animated--grow-in"
@@ -361,25 +361,30 @@
 
 <script type="module">
 /*
-  Robust RTDB fetch + Chart.js updater.
-  Replace the existing <script type="module"> that populates the charts.
+  Optimized RTDB fetch + Chart.js incremental updater.
+  Key ideas implemented (no structural changes):
+   - Load cached samples from localStorage for instant UI on page load.
+   - Initial history fetch (limit HIST_LIMIT) to populate charts.
+   - Realtime onValue listener processes only *new* samples (diff by timestamp) to avoid full re-render.
+   - Batch/throttle chart updates with requestAnimationFrame so multiple incoming updates render once.
+   - Debounced localStorage writes to persist last N samples for next page load.
 */
 
 import { rtdb } from './firebase-config.js';
 import { ref as dbRef, query, orderByChild, limitToLast, get, onValue } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js';
 
 const DEVICE_ID = 'device01';   // change as needed
-const SAMPLE_LIMIT = 120;
+const HIST_LIMIT = 120;         // items to fetch on full history load
+const LIVE_LIMIT = 60;          // how many recent items to keep in-memory for live updates
 const REF_PATH = `devices/${DEVICE_ID}/sensors`;
 const REF = dbRef(rtdb, REF_PATH);
 
-// Chart canvases (remain same as your HTML)
+// Chart canvases (cached once)
 const ctxTemp = document.getElementById('myAreaChart1').getContext('2d');
 const ctxHum  = document.getElementById('myAreaChart2').getContext('2d');
 const ctxMotion = document.getElementById('myBarChartMotion').getContext('2d');
 const ctxLdr  = document.getElementById('myAreaChart4').getContext('2d');
 
-// (Re)use helper chart creators from previous script
 function createLineChart(ctx, label, unit, borderColorRGBA, bgColorRGBA) {
   return new Chart(ctx, {
     type: 'line',
@@ -418,186 +423,180 @@ const chartHum  = createLineChart(ctxHum,  'Humidity', '%', 'rgba(54,162,235,1)'
 const chartLdr  = createLineChart(ctxLdr,  'Light', ' lx', 'rgba(75,192,192,1)', 'rgba(75,192,192,0.05)');
 const chartMotion = createBarChart(ctxMotion, 'Motion', ' times', 'rgba(255,206,86,0.7)', 'rgba(255,206,86,1)');
 
-function snapshotToArray(obj) {
-  if (!obj) return [];
-  return Object.entries(obj).map(([key, val]) => ({ key, ...(val || {}) }))
-    .sort((a,b) => {
-      const ta = ('timestamp_ms' in a) ? a.timestamp_ms : (('timestamp' in a) ? a.timestamp * 1000 : 0);
-      const tb = ('timestamp_ms' in b) ? b.timestamp_ms : (('timestamp' in b) ? b.timestamp * 1000 : 0);
-      return ta - tb;
-    });
+// in-memory arrays we maintain incrementally (avoids heavy re-parsing of entire snapshots)
+let labels = [];
+let temps = [];
+let hums = [];
+let ldrs = [];
+let motions = [];
+let lastTsMs = 0; // timestamp (ms) of newest sample we've processed
+
+// quick utility to parse timestamps efficiently
+function sampleTimestampMs(s) {
+  if (!s) return Date.now();
+  if (s.ts_iso) {
+    const parsed = Date.parse(s.ts_iso);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  if (s.timestamp_ms || s.timestamp_ms === 0) {
+    const v = Number(s.timestamp_ms);
+    return (v > 1e11) ? v : (v > 1e9 ? v : v * 1000);
+  }
+  if (s.timestamp || s.timestamp === 0) return Number(s.timestamp) * 1000;
+  return Date.now();
 }
 
-function buildSeries(samples) {
-  const labels = [], tempData = [], humData = [], ldrData = [], motionData = [];
+function pushSampleToBuffers(s) {
+  const ts = sampleTimestampMs(s);
+  if (ts <= lastTsMs) return false; // not newer
+  lastTsMs = ts;
+  const d = new Date(ts);
+  labels.push(d.toLocaleString());
+  temps.push((typeof s.temperature === 'number') ? s.temperature : null);
+  hums.push((typeof s.humidity === 'number') ? s.humidity : null);
+  ldrs.push((typeof s.ldr === 'number') ? s.ldr : null);
+  motions.push(s.motion ? 1 : 0);
 
-  samples.forEach(s => {
-    // Prefer ts_iso if present and looks valid
-    let tsMs = null;
-    if (s.ts_iso && typeof s.ts_iso === 'string' && s.ts_iso.length >= 10) {
-      const parsed = Date.parse(s.ts_iso);
-      if (!Number.isNaN(parsed)) tsMs = parsed;
-    }
+  // enforce LIVE_LIMIT cap
+  while (labels.length > HIST_LIMIT) { labels.shift(); temps.shift(); hums.shift(); ldrs.shift(); motions.shift(); }
+  return true;
+}
 
-    // Fallback to timestamp_ms (handle if it was saved in seconds by mistake)
-    if (tsMs === null && (s.timestamp_ms || s.timestamp_ms === 0)) {
-      const v = Number(s.timestamp_ms);
-      // If value looks like seconds (<= 1e10), multiply by 1000
-      tsMs = (v > 1e11) ? v : (v > 1e9 ? v : v * 1000);
-    }
+// Batch updates using requestAnimationFrame so multiple incoming samples render once
+let rafScheduled = false;
+function scheduleRender() {
+  if (rafScheduled) return;
+  rafScheduled = true;
+  requestAnimationFrame(() => {
+    rafScheduled = false;
+    // assign arrays to charts (Chart.js reads references, but to be safe we replace arrays)
+    chartTemp.data.labels = labels.slice();
+    chartTemp.data.datasets[0].data = temps.slice();
+    chartTemp.update();
 
-    // Fallback to timestamp (seconds)
-    if (tsMs === null && (s.timestamp || s.timestamp === 0)) {
-      const v = Number(s.timestamp);
-      tsMs = v * 1000;
-    }
+    chartHum.data.labels = labels.slice();
+    chartHum.data.datasets[0].data = hums.slice();
+    chartHum.update();
 
-    // Final fallback to now
-    if (tsMs === null) tsMs = Date.now();
+    chartLdr.data.labels = labels.slice();
+    chartLdr.data.datasets[0].data = ldrs.slice();
+    chartLdr.update();
 
-    const d = new Date(tsMs);
-    labels.push(d.toLocaleString()); // friendly label; change to ISO if you prefer
-
-    tempData.push((typeof s.temperature === 'number') ? s.temperature : null);
-    humData.push((typeof s.humidity === 'number') ? s.humidity : null);
-    ldrData.push((typeof s.ldr === 'number') ? s.ldr : null);
-    motionData.push(s.motion ? 1 : 0);
+    chartMotion.data.labels = labels.slice();
+    chartMotion.data.datasets[0].data = motions.slice();
+    chartMotion.update();
   });
-
-  return { labels, tempData, humData, ldrData, motionData };
 }
 
-
-function updateCharts(series) {
-  chartTemp.data.labels = series.labels;
-  chartTemp.data.datasets[0].data = series.tempData;
-  chartTemp.update();
-
-  chartHum.data.labels = series.labels;
-  chartHum.data.datasets[0].data = series.humData;
-  chartHum.update();
-
-  chartLdr.data.labels = series.labels;
-  chartLdr.data.datasets[0].data = series.ldrData;
-  chartLdr.update();
-
-  chartMotion.data.labels = series.labels;
-  chartMotion.data.datasets[0].data = series.motionData;
-  chartMotion.update();
-}
-
-/* Primary fetch using SDK query */
-async function fetchSensorHistorySDK() {
-  try {
-    const q = query(REF, orderByChild('timestamp'), limitToLast(SAMPLE_LIMIT));
-    const snap = await get(q); // may throw
-    if (!snap.exists()) {
-      console.log('No sensor data found for', REF_PATH);
-      return [];
-    }
-    const obj = snap.val();
-    const arr = snapshotToArray(obj);
-    return arr;
-  } catch (err) {
-    // Let caller know what failed — SDK errors sometimes wrap HTTP details.
-    console.error('fetchSensorHistory (SDK) error:', err);
-    throw err;
-  }
-}
-
-/* Fallback: REST fetch with properly encoded orderBy param (orderBy="%22timestamp%22") */
-async function fetchSensorHistoryREST() {
-  try {
-    // derive DB URL from initialized app via rtdb object
-    const dbUrl = (rtdb && rtdb.app && rtdb.app.options && rtdb.app.options.databaseURL) ? rtdb.app.options.databaseURL : null;
-    if (!dbUrl) throw new Error('Cannot determine databaseURL from firebase app instance.');
-
-    // ensure no trailing slash
-    let base = dbUrl;
-    if (base.endsWith('/')) base = base.slice(0, -1);
-
-    // orderBy must be quoted string ("%22timestamp%22")
-    const orderByParam = '%22timestamp%22';
-    const url = `${base}/devices/${encodeURIComponent(DEVICE_ID)}/sensors.json?orderBy=${orderByParam}&limitToLast=${SAMPLE_LIMIT}`;
-
-    console.log('Attempting REST fallback URL:', url);
-    const res = await fetch(url, { method: 'GET' });
-    const text = await res.text();
-    let json = null;
-    try { json = text ? JSON.parse(text) : null; } catch (e) { console.warn('REST response not JSON:', text); }
-
-    if (!res.ok) {
-      console.error('REST fetch failed:', res.status, res.statusText, json || text);
-      throw new Error(`REST fetch failed with status ${res.status}`);
-    }
-
-    if (!json) {
-      console.log('REST returned no data (null) for', DEVICE_ID);
-      return [];
-    }
-
-    // json is object of push keys -> values
-    const arr = snapshotToArray(json);
-    return arr;
-  } catch (err) {
-    console.error('fetchSensorHistory (REST) error:', err);
-    throw err;
-  }
-}
-
-/* High-level fetch: try SDK then fallback to REST and finally return [] */
-async function fetchSensorHistory() {
-  try {
-    return await fetchSensorHistorySDK();
-  } catch (sdkErr) {
-    // If SDK failed with a network/400 error, try REST
-    console.warn('SDK query failed; attempting REST fallback.', sdkErr && sdkErr.message ? sdkErr.message : sdkErr);
+// localStorage caching (debounced)
+const LS_KEY = `sl_cache_${DEVICE_ID}`;
+let saveTimeout = null;
+function saveCacheDebounced() {
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(() => {
     try {
-      return await fetchSensorHistoryREST();
-    } catch (restErr) {
-      console.error('Both SDK and REST fetch failed:', restErr);
-      return [];
-    }
-  }
+      const payload = { labels, temps, hums, ldrs, motions, lastTsMs };
+      localStorage.setItem(LS_KEY, JSON.stringify(payload));
+    } catch (e) { /* ignore storage errors */ }
+  }, 2000);
 }
 
-// initial load + attach realtime listener (SDK-based)
-async function refreshCharts() {
+function loadCacheAndRender() {
   try {
-    const samples = await fetchSensorHistory();
-    const series = buildSeries(samples);
-    updateCharts(series);
-  } catch (err) {
-    console.error('fetchSensorHistory error', err);
-  }
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return false;
+    const obj = JSON.parse(raw);
+    if (!obj || !obj.labels || obj.labels.length === 0) return false;
+    labels = obj.labels.slice(-HIST_LIMIT);
+    temps  = (obj.temps || []).slice(-HIST_LIMIT);
+    hums   = (obj.hums  || []).slice(-HIST_LIMIT);
+    ldrs   = (obj.ldrs  || []).slice(-HIST_LIMIT);
+    motions= (obj.motions|| []).slice(-HIST_LIMIT);
+    lastTsMs = obj.lastTsMs || 0;
+
+    // immediate render from cache
+    chartTemp.data.labels = labels.slice(); chartTemp.data.datasets[0].data = temps.slice(); chartTemp.update();
+    chartHum.data.labels = labels.slice(); chartHum.data.datasets[0].data = hums.slice(); chartHum.update();
+    chartLdr.data.labels = labels.slice(); chartLdr.data.datasets[0].data = ldrs.slice(); chartLdr.update();
+    chartMotion.data.labels = labels.slice(); chartMotion.data.datasets[0].data = motions.slice(); chartMotion.update();
+    return true;
+  } catch (e) { return false; }
 }
 
-refreshCharts();
+async function fetchInitialHistory() {
+  try {
+    const q = query(REF, orderByChild('timestamp'), limitToLast(HIST_LIMIT));
+    const snap = await get(q);
+    if (!snap.exists()) return [];
+    const obj = snap.val();
+    // convert to sorted array by timestamp (same logic as before but slightly faster)
+    const arr = Object.entries(obj).map(([k,v]) => ({ key:k, ...(v||{}) }));
+    arr.sort((a,b) => sampleTimestampMs(a) - sampleTimestampMs(b));
+    return arr;
+  } catch (err) { console.error('fetchInitialHistory error', err); return []; }
+}
 
-// attach realtime (recommended). If realtime subscription errors, fallback polling will still update charts.
-try {
-  const qRealtime = query(REF, orderByChild('timestamp'), limitToLast(SAMPLE_LIMIT));
-  onValue(qRealtime, (snapshot) => {
-    if (!snapshot.exists()) {
-      console.log('Realtime listener: no data');
-      updateCharts(buildSeries([]));
-      return;
+async function refreshChartsOnce() {
+  try {
+    const samples = await fetchInitialHistory();
+    if (!samples || samples.length === 0) return;
+    // reset buffers and fill
+    labels = []; temps = []; hums = []; ldrs = []; motions = [];
+    samples.forEach(s => {
+      const ts = sampleTimestampMs(s);
+      if (ts > lastTsMs) lastTsMs = ts;
+      labels.push(new Date(ts).toLocaleString());
+      temps.push((typeof s.temperature === 'number') ? s.temperature : null);
+      hums.push((typeof s.humidity === 'number') ? s.humidity : null);
+      ldrs.push((typeof s.ldr === 'number') ? s.ldr : null);
+      motions.push(s.motion ? 1 : 0);
+    });
+
+    // cap to HIST_LIMIT (should already be)
+    if (labels.length > HIST_LIMIT) {
+      const start = labels.length - HIST_LIMIT;
+      labels = labels.slice(start);
+      temps = temps.slice(start);
+      hums = hums.slice(start);
+      ldrs = ldrs.slice(start);
+      motions = motions.slice(start);
     }
-    const arr = snapshotToArray(snapshot.val());
-    updateCharts(buildSeries(arr));
-  }, (e) => {
-    console.error('Realtime listener error', e);
-  });
+
+    scheduleRender();
+    saveCacheDebounced();
+  } catch (e) { console.error('refreshChartsOnce error', e); }
+}
+
+// Initial: render cached view immediately (if available), then fetch fresh history and attach realtime listener
+loadCacheAndRender();
+refreshChartsOnce();
+
+// realtime listener: we only process items that are newer than lastTsMs
+try {
+  const qRealtime = query(REF, orderByChild('timestamp'), limitToLast(LIVE_LIMIT));
+  onValue(qRealtime, (snapshot) => {
+    if (!snapshot.exists()) return;
+    const val = snapshot.val();
+    // iterate entries and append only those with timestamp > lastTsMs
+    const items = Object.values(val || {});
+    // sort by timestamp ascending to handle multiple new items in order
+    items.sort((a,b) => sampleTimestampMs(a) - sampleTimestampMs(b));
+    let appended = false;
+    for (const s of items) {
+      const added = pushSampleToBuffers(s);
+      if (added) appended = true;
+    }
+    if (appended) { scheduleRender(); saveCacheDebounced(); }
+  }, (e) => { console.error('Realtime listener error', e); });
 } catch (e) {
   console.warn('Failed to attach realtime listener (will rely on polling):', e);
+  // fallback polling (less desirable) - poll every 15s
+  setInterval(refreshChartsOnce, 15000);
 }
-
-// polling fallback
-setInterval(refreshCharts, 15000);
 
 </script>
 
-	
+    
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
@@ -649,6 +648,18 @@ setInterval(refreshCharts, 15000);
     }
   });
 
+  // small cache for profile to show instantly while Firestore resolves
+  function loadProfileCache(uid) {
+    try {
+      const raw = localStorage.getItem(`sl_profile_${uid}`);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (e) { return null; }
+  }
+  function saveProfileCache(uid, obj) {
+    try { localStorage.setItem(`sl_profile_${uid}`, JSON.stringify(obj)); } catch(e){}
+  }
+
   onAuthStateChanged(auth, async (user) => {
     // cleanup previous listener
     if (unsubscribeUserDoc) {
@@ -657,7 +668,6 @@ setInterval(refreshCharts, 15000);
     }
 
     if (!user) {
-      // no user -> redirect to login (or leave page depending on your flow)
       console.log('No user signed in — redirecting to login.');
       location.replace('login.html');
       return;
@@ -667,9 +677,18 @@ setInterval(refreshCharts, 15000);
     const displayName = user.displayName || '';
     const email = user.email || '';
     const fallbackName = email ? email.split('@')[0] : 'User';
-    if (topbarUsernameEl) topbarUsernameEl.textContent = displayName || fallbackName;
-    if (topbarAvatarEl) topbarAvatarEl.src = user.photoURL || DEFAULT_AVATAR;
-    if (greetingEl) greetingEl.textContent = `Hello ${displayName || fallbackName} !`;
+
+    // attempt to load a small cached profile for instant UX
+    const cached = loadProfileCache(user.uid);
+    if (cached) {
+      if (topbarUsernameEl) topbarUsernameEl.textContent = cached.username || displayName || fallbackName;
+      if (topbarAvatarEl) topbarAvatarEl.src = cached.avatarUrl ? cacheBustedUrl(cached.avatarUrl, cached.avatarUpdatedAt) : (user.photoURL || DEFAULT_AVATAR);
+      if (greetingEl) greetingEl.textContent = `Hello ${cached.username || displayName || fallbackName} !`;
+    } else {
+      if (topbarUsernameEl) topbarUsernameEl.textContent = displayName || fallbackName;
+      if (topbarAvatarEl) topbarAvatarEl.src = user.photoURL || DEFAULT_AVATAR;
+      if (greetingEl) greetingEl.textContent = `Hello ${displayName || fallbackName} !`;
+    }
 
     // 2) attempt to subscribe to users/{uid} for realtime updates (preferred)
     const userDocRef = doc(db, 'users', user.uid);
@@ -677,7 +696,10 @@ setInterval(refreshCharts, 15000);
     try {
       const snap = await getDoc(userDocRef);
       if (snap.exists()) {
-        // realtime updates
+        // save a small cache right away for next page load
+        const data = snap.data();
+        saveProfileCache(user.uid, { username: data.username || displayName || fallbackName, avatarUrl: data.avatarUrl || user.photoURL || null, avatarUpdatedAt: data.avatarUpdatedAt || Date.now() });
+
         unsubscribeUserDoc = onSnapshot(userDocRef, (snapshot) => {
           if (!snapshot.exists()) return;
           const data = snapshot.data();
@@ -686,7 +708,6 @@ setInterval(refreshCharts, 15000);
           if (topbarUsernameEl) topbarUsernameEl.textContent = uname;
           if (greetingEl) greetingEl.textContent = `Hello ${uname} !`;
 
-          // avatar logic: prefer Firestore avatarUrl -> auth.photoURL -> default
           if (data.avatarUrl && topbarAvatarEl) {
             topbarAvatarEl.src = cacheBustedUrl(data.avatarUrl, data.avatarUpdatedAt);
           } else if (user.photoURL && topbarAvatarEl) {
@@ -694,11 +715,13 @@ setInterval(refreshCharts, 15000);
           } else if (topbarAvatarEl) {
             topbarAvatarEl.src = DEFAULT_AVATAR;
           }
+
+          // refresh cache on each update
+          saveProfileCache(user.uid, { username: uname, avatarUrl: data.avatarUrl || user.photoURL || null, avatarUpdatedAt: data.avatarUpdatedAt || Date.now() });
         }, (err) => {
           console.error('users/{uid} onSnapshot error:', err);
         });
       } else {
-        // no doc: keep auth fields (already set). You may choose to create a doc on first load.
         console.log('users/{uid} doc not found; using auth values.');
       }
     } catch (err) {
