@@ -130,5 +130,65 @@ app.get('/', (req, res) => {
   res.send('Backend server is running.');
 });
 
+// Add near other endpoints in server.js
+
+// 1) Check user existence (admin lookup)
+app.post('/api/checkUserByEmail', async (req, res) => {
+  const { email } = req.body || {};
+  if (!email) return res.status(400).json({ ok: false, error: 'email required' });
+  try {
+    const user = await auth.getUserByEmail(email);
+    return res.json({
+      ok: true,
+      uid: user.uid,
+      email: user.email,
+      providers: (user.providerData || []).map(p => p.providerId),
+    });
+  } catch (err) {
+    if (err.code === 'auth/user-not-found') {
+      return res.json({ ok: false, code: 'user-not-found' });
+    }
+    console.error('Admin lookup error:', err);
+    return res.status(500).json({ ok: false, error: err.message || err });
+  }
+});
+
+// 2) Generate password reset link (and optionally send email)
+// NOTE: In production you should send the link via your own email provider.
+// For testing you can return the link in JSON (NOT recommended in production).
+app.post('/api/sendResetLink', async (req, res) => {
+  const { email, sendEmail } = req.body || {};
+  if (!email) return res.status(400).json({ ok: false, error: 'email required' });
+
+  try {
+    // 1) Confirm user exists (throws if not)
+    const user = await auth.getUserByEmail(email);
+
+    // 2) Ensure user supports password sign-in
+    const providers = (user.providerData || []).map(p => p.providerId);
+    if (!providers.includes('password')) {
+      // For security, you may want to respond with a generic message instead.
+      return res.json({ ok: false, code: 'no-password-provider', providers });
+    }
+
+    // 3) Generate password reset link
+    const link = await auth.generatePasswordResetLink(email);
+
+    // Option A: return the link (for debugging/testing only)
+    if (!sendEmail) {
+      return res.json({ ok: true, uid: user.uid, link });
+    }
+
+  } catch (err) {
+    console.error('sendResetLink error:', err);
+    if (err.code === 'auth/user-not-found') {
+      // For debugging we return code. In production, consider returning generic success.
+      return res.json({ ok: false, code: 'user-not-found' });
+    }
+    return res.status(500).json({ ok: false, error: err.message || err });
+  }
+});
+
+
 const PORT = 3000;
 app.listen(PORT, () => console.log(`Admin backend running at http://localhost:${PORT}`));
