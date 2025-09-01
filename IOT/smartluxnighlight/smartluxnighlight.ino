@@ -42,7 +42,14 @@ volatile bool motionTriggeredISR = false;
 volatile unsigned long lastMotionTime = 0;
 bool ledsActive = false;
 
-// sensor data queue
+// Remote override state
+// Path used: devices/<device_id>/control/led.json  (value: 0, 1 or 2 — 2 = automatic)
+// 2 => automatic (no override), 0 => forced OFF, 1 => forced ON
+volatile int remoteLedState = 2;
+unsigned long lastLedFetchMs = 0;
+const unsigned long ledPollIntervalMs = 1000; // poll every 1s
+
+// sensor data queue (existing)
 typedef struct {
   int ldr;
   bool motion;
@@ -122,7 +129,7 @@ void setup() {
   if (!sensorQueue) {
     Serial.println("Failed to create sensor queue!");
   } else {
-    // Firebase sender task pinned to core 1 (keeps original behavior)
+    // Firebase sender task pinned to core 1
     xTaskCreatePinnedToCore(firebaseTask, "firebaseTask", 16384, NULL, 1, NULL, 1);
   }
 
@@ -197,6 +204,15 @@ void loop() {
   int pwmVal = map(brightness, 0, maxBrightness, 0, 255);
 
   int redPWM = 0, greenPWM = 0, bluePWM = 0;
+
+  // Apply override from remote control if present (remoteLedState)
+  // remoteLedState == 1 => force ON; == 0 => force OFF; == 2 => automatic
+  if (remoteLedState == 1) {
+    ledsActive = true;
+  } else if (remoteLedState == 0) {
+    ledsActive = false;
+  }
+
   if (ledsActive) {
     if (!isnan(temperature)) {
       if (temperature < coldThreshold) {
@@ -218,11 +234,12 @@ void loop() {
   analogWrite(bluePin, bluePWM);
 
   // debug
-  Serial.printf("LDR=%d Motion=%d Bright=%d Temp=%.1f Hum=%.1f LED[R,G,B]=[%d,%d,%d]\n",
+  Serial.printf("LDR=%d Motion=%d Bright=%d Temp=%.1f Hum=%.1f LED[R,G,B]=[%d,%d,%d] remote=%d\n",
                 lightValue, motionDetected, brightness,
                 (isnan(temperature)?0.0:temperature),
                 (isnan(humidity)?0.0:humidity),
-                redPWM, greenPWM, bluePWM);
+                redPWM, greenPWM, bluePWM,
+                remoteLedState);
 
   // If motion detected: push immediate notify event
   if (motionDetected) {
@@ -468,6 +485,57 @@ void firebaseTask(void* pvParameters) {
         https.end();
       } else {
         Serial.println("[FirebaseTask] begin failed (GET notify)");
+      }
+    }
+
+    // Periodically fetch remote LED control value from Firebase
+    if (tNow - lastLedFetchMs >= ledPollIntervalMs) {
+      lastLedFetchMs = tNow;
+
+      String ledUrl = String(FIREBASE_DATABASE_URL);
+      if (!ledUrl.endsWith("/")) ledUrl += "/";
+      ledUrl += "devices/";
+      ledUrl += DEVICE_ID;
+      ledUrl += "/control/led.json"; // <-- path expected by website
+
+      Serial.print("[FirebaseTask] GET remote led state ");
+      Serial.println(ledUrl);
+
+      if (https.begin(*client, ledUrl)) {
+        int httpCode = https.GET();
+        if (httpCode == HTTP_CODE_OK) {
+          String body = https.getString();
+          body.trim();
+          Serial.print("[FirebaseTask] led body: ");
+          Serial.println(body);
+
+          // Possible responses: "0", "1", null ("null")
+          if (body == "0") {
+            remoteLedState = 0;
+          } else if (body == "1") {
+            remoteLedState = 1;
+          } else if (body == "null" || body.length() == 0) {
+            remoteLedState = 2; // clear override
+          } else {
+            // try to parse as JSON number
+            StaticJsonDocument<16> doc;
+            DeserializationError err = deserializeJson(doc, body);
+            if (!err) {
+              int v = doc.as<int>();
+              if (v == 0) remoteLedState = 0;
+              else if (v == 1) remoteLedState = 1;
+              else remoteLedState = 2;
+            } else {
+              remoteLedState = 2;
+            }
+          }
+
+        } else {
+          Serial.printf("[FirebaseTask] GET led failed: %d\n", httpCode);
+        }
+        https.end();
+      } else {
+        Serial.println("[FirebaseTask] begin failed (GET led)");
       }
     }
 
