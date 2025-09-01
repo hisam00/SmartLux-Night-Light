@@ -121,6 +121,14 @@ async function refreshCharts() {
 - Inspired by smart home and IoT automation projects.
 - Built using [Firebase](https://firebase.google.com/) and Arduino-compatible microcontrollers.
 
----
+### Project Team G6
 
-**Author:** [hisam00](https://github.com/hisam00)
+- [hisam00](https://github.com/hisam00)
+- [azim](https://github.com/azimkhan05)
+- [ryoga](https://github.com/RyogaF22)
+- [irfan](https://github.com/RAKABA379)
+- [izzah](https://github.com/ZaxleX1)
+
+### Special Thanks
+
+- [Miss_Syira](https://github.com/syiraazhari) for guidance and support.
