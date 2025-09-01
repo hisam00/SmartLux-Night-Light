@@ -3,6 +3,7 @@
 #include <DHT.h>
 #include <HTTPClient.h>
 #include <time.h>
+#include <ArduinoJson.h>
 
 #define DHTType DHT11
 
@@ -53,14 +54,44 @@ typedef struct {
 
 QueueHandle_t sensorQueue = nullptr;
 
+// --- Notify config + immediate notify queue/task
+typedef struct {
+  String option;           // "none", "hass", "all"
+  String motion_url;       // URL to call for motion
+  String temp_url;         // URL to call for high temperature
+  float high_temp_threshold; // temperature threshold for high-alert
+  unsigned long lastFetchedMs;
+} NotifyConfig;
+
+NotifyConfig notifyCfg = {
+  .option = "none",
+  .motion_url = "",
+  .temp_url = "",
+  .high_temp_threshold = hotThreshold,
+  .lastFetchedMs = 0
+};
+
+enum EventType { EVT_MOTION = 0, EVT_HIGH_TEMP = 1 };
+
+typedef struct {
+  EventType type;
+  unsigned long epoch_ms;
+  int ldr;
+  float temperature;
+} NotifyEvent;
+
+QueueHandle_t notifyQueue = nullptr;
+// -----------------------------------------
+
 void connectWiFi();
 bool enqueueSensorData(int ldr, bool motion, float hum, float temp);
 void firebaseTask(void* pvParameters);
+void notifyTask(void* pvParameters);
+void fetchNotifyConfigOnce(); // helper to fetch notify config immediately
 
 // ISR for motion (RISING)
 void IRAM_ATTR motionISR() {
   motionTriggeredISR = true;
-  // capture tick count in ms in ISR-safe way
   TickType_t t = xTaskGetTickCountFromISR();
   lastMotionTime = (unsigned long)t * portTICK_PERIOD_MS;
 }
@@ -84,16 +115,25 @@ void setup() {
 
   connectWiFi();
 
-  // create queue for sensor samples
+  // create queues
   sensorQueue = xQueueCreate(10, sizeof(SensorData));
+  notifyQueue = xQueueCreate(32, sizeof(NotifyEvent)); // larger so we don't drop events
+
   if (!sensorQueue) {
-    Serial.println("Failed to create queue!");
+    Serial.println("Failed to create sensor queue!");
   } else {
-    // Firebase sender task pinned to core 1
-    xTaskCreatePinnedToCore(firebaseTask, "firebaseTask", 8192, NULL, 1, NULL, 1);
+    // Firebase sender task pinned to core 1 (keeps original behavior)
+    xTaskCreatePinnedToCore(firebaseTask, "firebaseTask", 16384, NULL, 1, NULL, 1);
   }
 
-  // attach interrupt
+  if (!notifyQueue) {
+    Serial.println("Failed to create notify queue!");
+  } else {
+    // Notify task pinned to core 0 (immediate webhook caller)
+    xTaskCreatePinnedToCore(notifyTask, "notifyTask", 12288, NULL, 2, NULL, 0);
+  }
+
+  // attach interrupt (ISR only sets a flag)
   attachInterrupt(digitalPinToInterrupt(motionSensorPin), motionISR, RISING);
 
   // NTP
@@ -107,6 +147,9 @@ void setup() {
   }
   if (now >= 1600000000ULL) Serial.println("NTP time synced.");
   else Serial.println("NTP time not available; will use millis() timestamps as fallback.");
+
+  // Fetch notify config once right away so notifyTask has latest settings
+  fetchNotifyConfigOnce();
 }
 
 unsigned long lastDhtRead = 0;
@@ -135,8 +178,10 @@ void loop() {
   static float humidity = NAN;
   static float temperature = NAN;
   unsigned long nowMs = millis();
+  bool didDhtRead = false;
   if (nowMs - lastDhtRead >= dhtInterval) {
     lastDhtRead = nowMs;
+    didDhtRead = true;
     float h = dht.readHumidity();
     float t = dht.readTemperature();
     if (!isnan(h)) humidity = h;
@@ -167,6 +212,7 @@ void loop() {
     }
   }
 
+  // apply PWM using analogWrite
   analogWrite(redPin, redPWM);
   analogWrite(greenPin, greenPWM);
   analogWrite(bluePin, bluePWM);
@@ -177,6 +223,31 @@ void loop() {
                 (isnan(temperature)?0.0:temperature),
                 (isnan(humidity)?0.0:humidity),
                 redPWM, greenPWM, bluePWM);
+
+  // If motion detected: push immediate notify event
+  if (motionDetected) {
+    NotifyEvent ev;
+    time_t nowt = time(nullptr);
+    ev.epoch_ms = (nowt > 0) ? (unsigned long)nowt * 1000UL : millis();
+    ev.type = EVT_MOTION;
+    ev.ldr = lightValue;
+    ev.temperature = isnan(temperature) ? NAN : temperature;
+    if (notifyQueue) xQueueSend(notifyQueue, &ev, 0);
+  }
+
+  // If DHT read just happened and temperature > threshold: push immediate high-temp event
+  if (didDhtRead && !isnan(temperature)) {
+    float threshold = notifyCfg.high_temp_threshold;
+    if (temperature > threshold) {
+      NotifyEvent ev;
+      time_t nowt = time(nullptr);
+      ev.epoch_ms = (nowt > 0) ? (unsigned long)nowt * 1000UL : millis();
+      ev.type = EVT_HIGH_TEMP;
+      ev.ldr = lightValue;
+      ev.temperature = temperature;
+      if (notifyQueue) xQueueSend(notifyQueue, &ev, 0);
+    }
+  }
 
   // enqueue sensor data periodically
   if (millis() - lastSendTime >= sendInterval) {
@@ -219,7 +290,76 @@ bool enqueueSensorData(int ldr, bool motion, float hum, float temp) {
   return false;
 }
 
-// Firebase task runs separately
+// Notify task: processes NotifyEvents immediately and calls webhook URLs
+void notifyTask(void* pvParameters) {
+  WiFiClientSecure *client = new WiFiClientSecure();
+  client->setInsecure();
+  HTTPClient https;
+
+  for (;;) {
+    NotifyEvent ev;
+    if (xQueueReceive(notifyQueue, &ev, portMAX_DELAY) == pdTRUE) {
+      // Only proceed if notify is enabled (option != "none") and URL present
+      if (notifyCfg.option == "none") {
+        Serial.println("[notifyTask] notify.option == none, skipping event.");
+        continue;
+      }
+
+      String targetUrl = "";
+      if (ev.type == EVT_MOTION) targetUrl = notifyCfg.motion_url;
+      else if (ev.type == EVT_HIGH_TEMP) targetUrl = notifyCfg.temp_url;
+
+      if (targetUrl.length() == 0) {
+        Serial.println("[notifyTask] No target URL configured for this event, skipping.");
+        continue;
+      }
+
+      // Build payload
+      char payload[256];
+      if (ev.type == EVT_MOTION) {
+        if (isnan(ev.temperature)) {
+          snprintf(payload, sizeof(payload),
+            "{\"device\":\"%s\",\"event\":\"motion\",\"timestamp_ms\":%lu,\"ldr\":%d}",
+            DEVICE_ID, ev.epoch_ms, ev.ldr);
+        } else {
+          snprintf(payload, sizeof(payload),
+            "{\"device\":\"%s\",\"event\":\"motion\",\"timestamp_ms\":%lu,\"ldr\":%d,\"temperature\":%.2f}",
+            DEVICE_ID, ev.epoch_ms, ev.ldr, ev.temperature);
+        }
+      } else {
+        snprintf(payload, sizeof(payload),
+          "{\"device\":\"%s\",\"event\":\"high_temperature\",\"timestamp_ms\":%lu,\"temperature\":%.2f,\"threshold\":%.2f}",
+          DEVICE_ID, ev.epoch_ms, ev.temperature, notifyCfg.high_temp_threshold);
+      }
+
+      Serial.print("[notifyTask] POST -> ");
+      Serial.println(targetUrl);
+      Serial.println(payload);
+
+      if (https.begin(*client, targetUrl)) {
+        https.addHeader("Content-Type", "application/json");
+        int httpCode = https.POST(String(payload));
+        if (httpCode > 0) {
+          Serial.printf("[notifyTask] HTTP %d\n", httpCode);
+          String resp = https.getString();
+          Serial.println(resp);
+        } else {
+          Serial.printf("[notifyTask] POST failed: %s\n", https.errorToString(httpCode).c_str());
+        }
+        https.end();
+      } else {
+        Serial.println("[notifyTask] begin failed (notify)");
+      }
+
+      vTaskDelay(10 / portTICK_PERIOD_MS);
+    }
+  }
+
+  delete client;
+  vTaskDelete(NULL);
+}
+
+// Firebase task runs separately (posting sensors + periodic notify fetch)
 void firebaseTask(void* pvParameters) {
   WiFiClientSecure *client = new WiFiClientSecure();
   client->setInsecure();
@@ -227,7 +367,9 @@ void firebaseTask(void* pvParameters) {
 
   for (;;) {
     SensorData data;
-    if (xQueueReceive(sensorQueue, &data, portMAX_DELAY) == pdTRUE) {
+    // wait for sensor data, but timeout so we can periodically refresh notify config
+    if (xQueueReceive(sensorQueue, &data, 2000 / portTICK_PERIOD_MS) == pdTRUE) {
+      // Post sensor data
       String url = String(FIREBASE_DATABASE_URL);
       if (!url.endsWith("/")) url += "/";
       url += "devices/";
@@ -273,14 +415,113 @@ void firebaseTask(void* pvParameters) {
         }
         https.end();
       } else {
-        Serial.println("[FirebaseTask] begin failed");
+        Serial.println("[FirebaseTask] begin failed (POST)");
       }
-      delay(10);
+
+      delay(10); // small pause after processing this queue item
     }
+
+    // Periodically fetch notify config from Firebase so notifyTask has latest info
+    unsigned long tNow = millis();
+    if (tNow - notifyCfg.lastFetchedMs >= 10000UL) { // every 10s
+      String cfgUrl = String(FIREBASE_DATABASE_URL);
+      if (!cfgUrl.endsWith("/")) cfgUrl += "/";
+      cfgUrl += "devices/";
+      cfgUrl += DEVICE_ID;
+      cfgUrl += "/notify.json";
+
+      Serial.print("[FirebaseTask] GET notify config ");
+      Serial.println(cfgUrl);
+
+      if (https.begin(*client, cfgUrl)) {
+        int httpCode = https.GET();
+        if (httpCode == HTTP_CODE_OK) {
+          String body = https.getString();
+          Serial.println("[FirebaseTask] notify config body:");
+          Serial.println(body);
+
+          StaticJsonDocument<512> doc;
+          DeserializationError err = deserializeJson(doc, body);
+          if (!err) {
+            if (doc.containsKey("option")) notifyCfg.option = String((const char*)doc["option"]);
+            if (doc.containsKey("motion_url")) notifyCfg.motion_url = String((const char*)doc["motion_url"]);
+            if (doc.containsKey("temp_url")) notifyCfg.temp_url = String((const char*)doc["temp_url"]);
+            if (doc.containsKey("high_temp_threshold")) {
+              notifyCfg.high_temp_threshold = doc["high_temp_threshold"].as<float>();
+            } else {
+              notifyCfg.high_temp_threshold = hotThreshold;
+            }
+            notifyCfg.lastFetchedMs = tNow;
+            Serial.println("[FirebaseTask] notify config updated:");
+            Serial.printf(" option=%s\n motion_url=%s\n temp_url=%s\n threshold=%.2f\n",
+                          notifyCfg.option.c_str(),
+                          notifyCfg.motion_url.c_str(),
+                          notifyCfg.temp_url.c_str(),
+                          notifyCfg.high_temp_threshold);
+          } else {
+            Serial.print("[FirebaseTask] JSON parse failed: ");
+            Serial.println(err.c_str());
+          }
+        } else {
+          Serial.printf("[FirebaseTask] GET notify failed: %d\n", httpCode);
+        }
+        https.end();
+      } else {
+        Serial.println("[FirebaseTask] begin failed (GET notify)");
+      }
+    }
+
+    // small idle to yield
+    vTaskDelay(10 / portTICK_PERIOD_MS);
   }
 
   delete client;
   vTaskDelete(NULL);
+}
+
+// Fetch notify config once at startup (called from setup)
+void fetchNotifyConfigOnce() {
+  WiFiClientSecure client;
+  client.setInsecure();
+  HTTPClient https;
+
+  String cfgUrl = String(FIREBASE_DATABASE_URL);
+  if (!cfgUrl.endsWith("/")) cfgUrl += "/";
+  cfgUrl += "devices/";
+  cfgUrl += DEVICE_ID;
+  cfgUrl += "/notify.json";
+
+  Serial.print("[fetchNotifyConfigOnce] GET ");
+  Serial.println(cfgUrl);
+
+  if (https.begin(client, cfgUrl)) {
+    int httpCode = https.GET();
+    if (httpCode == HTTP_CODE_OK) {
+      String body = https.getString();
+      StaticJsonDocument<512> doc;
+      DeserializationError err = deserializeJson(doc, body);
+      if (!err) {
+        if (doc.containsKey("option")) notifyCfg.option = String((const char*)doc["option"]);
+        if (doc.containsKey("motion_url")) notifyCfg.motion_url = String((const char*)doc["motion_url"]);
+        if (doc.containsKey("temp_url")) notifyCfg.temp_url = String((const char*)doc["temp_url"]);
+        if (doc.containsKey("high_temp_threshold")) {
+          notifyCfg.high_temp_threshold = doc["high_temp_threshold"].as<float>();
+        } else {
+          notifyCfg.high_temp_threshold = hotThreshold;
+        }
+        notifyCfg.lastFetchedMs = millis();
+        Serial.println("[fetchNotifyConfigOnce] notify config loaded");
+      } else {
+        Serial.print("[fetchNotifyConfigOnce] JSON parse failed: ");
+        Serial.println(err.c_str());
+      }
+    } else {
+      Serial.printf("[fetchNotifyConfigOnce] GET failed: %d\n", httpCode);
+    }
+    https.end();
+  } else {
+    Serial.println("[fetchNotifyConfigOnce] begin failed");
+  }
 }
 
 void connectWiFi() {
