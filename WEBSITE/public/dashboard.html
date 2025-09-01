@@ -360,18 +360,9 @@
             <!-- Page level custom scripts -->
 
 <script type="module">
-/*
-  Optimized RTDB fetch + Chart.js incremental updater.
-  Key ideas implemented (no structural changes):
-   - Load cached samples from localStorage for instant UI on page load.
-   - Initial history fetch (limit HIST_LIMIT) to populate charts.
-   - Realtime onValue listener processes only *new* samples (diff by timestamp) to avoid full re-render.
-   - Batch/throttle chart updates with requestAnimationFrame so multiple incoming updates render once.
-   - Debounced localStorage writes to persist last N samples for next page load.
-*/
 
 import { rtdb } from './firebase-config.js';
-import { ref as dbRef, query, orderByChild, limitToLast, get, onValue } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js';
+import { ref as dbRef, query, limitToLast, get, onValue } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js';
 
 const DEVICE_ID = 'device01';   // change as needed
 const HIST_LIMIT = 120;         // items to fetch on full history load
@@ -457,7 +448,7 @@ function pushSampleToBuffers(s) {
   ldrs.push((typeof s.ldr === 'number') ? s.ldr : null);
   motions.push(s.motion ? 1 : 0);
 
-  // enforce LIVE_LIMIT cap
+  // enforce HIST_LIMIT cap
   while (labels.length > HIST_LIMIT) { labels.shift(); temps.shift(); hums.shift(); ldrs.shift(); motions.shift(); }
   return true;
 }
@@ -469,7 +460,6 @@ function scheduleRender() {
   rafScheduled = true;
   requestAnimationFrame(() => {
     rafScheduled = false;
-    // assign arrays to charts (Chart.js reads references, but to be safe we replace arrays)
     chartTemp.data.labels = labels.slice();
     chartTemp.data.datasets[0].data = temps.slice();
     chartTemp.update();
@@ -525,11 +515,12 @@ function loadCacheAndRender() {
 
 async function fetchInitialHistory() {
   try {
-    const q = query(REF, orderByChild('timestamp'), limitToLast(HIST_LIMIT));
+    // use push-key order: limitToLast -> returns most-recently-added push nodes
+    const q = query(REF, limitToLast(HIST_LIMIT));
     const snap = await get(q);
     if (!snap.exists()) return [];
     const obj = snap.val();
-    // convert to sorted array by timestamp (same logic as before but slightly faster)
+    // convert to sorted array by timestamp (to order correctly in chart)
     const arr = Object.entries(obj).map(([k,v]) => ({ key:k, ...(v||{}) }));
     arr.sort((a,b) => sampleTimestampMs(a) - sampleTimestampMs(b));
     return arr;
@@ -571,13 +562,12 @@ async function refreshChartsOnce() {
 loadCacheAndRender();
 refreshChartsOnce();
 
-// realtime listener: we only process items that are newer than lastTsMs
+// realtime listener: use limitToLast so we get the recent push nodes; only append items newer than lastTsMs
 try {
-  const qRealtime = query(REF, orderByChild('timestamp'), limitToLast(LIVE_LIMIT));
+  const qRealtime = query(REF, limitToLast(LIVE_LIMIT));
   onValue(qRealtime, (snapshot) => {
     if (!snapshot.exists()) return;
     const val = snapshot.val();
-    // iterate entries and append only those with timestamp > lastTsMs
     const items = Object.values(val || {});
     // sort by timestamp ascending to handle multiple new items in order
     items.sort((a,b) => sampleTimestampMs(a) - sampleTimestampMs(b));
@@ -593,8 +583,8 @@ try {
   // fallback polling (less desirable) - poll every 15s
   setInterval(refreshChartsOnce, 15000);
 }
-
 </script>
+
 
     
 <script type="module">

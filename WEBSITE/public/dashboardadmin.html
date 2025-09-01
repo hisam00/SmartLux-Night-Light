@@ -442,26 +442,19 @@
             <!-- Page level custom scripts -->
 
 <script type="module">
-/*
-  Robust RTDB fetch + Chart.js updater.
-  Replace the existing <script type="module"> that populates the charts.
-*/
-
 import { rtdb } from './firebase-config.js';
-import { ref as dbRef, query, orderByChild, limitToLast, get, onValue } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js';
+import { ref as dbRef, query, limitToLast, get, onValue } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js';
 
-const DEVICE_ID = 'device01';   // change as needed
+const DEVICE_ID = 'device01';
 const SAMPLE_LIMIT = 120;
 const REF_PATH = `devices/${DEVICE_ID}/sensors`;
 const REF = dbRef(rtdb, REF_PATH);
 
-// Chart canvases (remain same as your HTML)
 const ctxTemp = document.getElementById('myAreaChart1').getContext('2d');
 const ctxHum  = document.getElementById('myAreaChart2').getContext('2d');
 const ctxMotion = document.getElementById('myBarChartMotion').getContext('2d');
 const ctxLdr  = document.getElementById('myAreaChart4').getContext('2d');
 
-// (Re)use helper chart creators from previous script
 function createLineChart(ctx, label, unit, borderColorRGBA, bgColorRGBA) {
   return new Chart(ctx, {
     type: 'line',
@@ -514,32 +507,22 @@ function buildSeries(samples) {
   const labels = [], tempData = [], humData = [], ldrData = [], motionData = [];
 
   samples.forEach(s => {
-    // Prefer ts_iso if present and looks valid
     let tsMs = null;
     if (s.ts_iso && typeof s.ts_iso === 'string' && s.ts_iso.length >= 10) {
       const parsed = Date.parse(s.ts_iso);
       if (!Number.isNaN(parsed)) tsMs = parsed;
     }
-
-    // Fallback to timestamp_ms (handle if it was saved in seconds by mistake)
     if (tsMs === null && (s.timestamp_ms || s.timestamp_ms === 0)) {
       const v = Number(s.timestamp_ms);
-      // If value looks like seconds (<= 1e10), multiply by 1000
       tsMs = (v > 1e11) ? v : (v > 1e9 ? v : v * 1000);
     }
-
-    // Fallback to timestamp (seconds)
     if (tsMs === null && (s.timestamp || s.timestamp === 0)) {
       const v = Number(s.timestamp);
       tsMs = v * 1000;
     }
-
-    // Final fallback to now
     if (tsMs === null) tsMs = Date.now();
-
     const d = new Date(tsMs);
-    labels.push(d.toLocaleString()); // friendly label; change to ISO if you prefer
-
+    labels.push(d.toLocaleString());
     tempData.push((typeof s.temperature === 'number') ? s.temperature : null);
     humData.push((typeof s.humidity === 'number') ? s.humidity : null);
     ldrData.push((typeof s.ldr === 'number') ? s.ldr : null);
@@ -548,7 +531,6 @@ function buildSeries(samples) {
 
   return { labels, tempData, humData, ldrData, motionData };
 }
-
 
 function updateCharts(series) {
   chartTemp.data.labels = series.labels;
@@ -568,11 +550,11 @@ function updateCharts(series) {
   chartMotion.update();
 }
 
-/* Primary fetch using SDK query */
+/* SDK fetch: use limitToLast (order by push-key / insertion order) */
 async function fetchSensorHistorySDK() {
   try {
-    const q = query(REF, orderByChild('timestamp'), limitToLast(SAMPLE_LIMIT));
-    const snap = await get(q); // may throw
+    const q = query(REF, limitToLast(SAMPLE_LIMIT));
+    const snap = await get(q);
     if (!snap.exists()) {
       console.log('No sensor data found for', REF_PATH);
       return [];
@@ -581,25 +563,20 @@ async function fetchSensorHistorySDK() {
     const arr = snapshotToArray(obj);
     return arr;
   } catch (err) {
-    // Let caller know what failed — SDK errors sometimes wrap HTTP details.
     console.error('fetchSensorHistory (SDK) error:', err);
     throw err;
   }
 }
 
-/* Fallback: REST fetch with properly encoded orderBy param (orderBy="%22timestamp%22") */
+/* REST fallback: orderBy="$key" so we get last push keys */
 async function fetchSensorHistoryREST() {
   try {
-    // derive DB URL from initialized app via rtdb object
     const dbUrl = (rtdb && rtdb.app && rtdb.app.options && rtdb.app.options.databaseURL) ? rtdb.app.options.databaseURL : null;
     if (!dbUrl) throw new Error('Cannot determine databaseURL from firebase app instance.');
-
-    // ensure no trailing slash
     let base = dbUrl;
     if (base.endsWith('/')) base = base.slice(0, -1);
 
-    // orderBy must be quoted string ("%22timestamp%22")
-    const orderByParam = '%22timestamp%22';
+    const orderByParam = '%22$key%22'; // "%22$key%22"
     const url = `${base}/devices/${encodeURIComponent(DEVICE_ID)}/sensors.json?orderBy=${orderByParam}&limitToLast=${SAMPLE_LIMIT}`;
 
     console.log('Attempting REST fallback URL:', url);
@@ -618,7 +595,6 @@ async function fetchSensorHistoryREST() {
       return [];
     }
 
-    // json is object of push keys -> values
     const arr = snapshotToArray(json);
     return arr;
   } catch (err) {
@@ -627,12 +603,10 @@ async function fetchSensorHistoryREST() {
   }
 }
 
-/* High-level fetch: try SDK then fallback to REST and finally return [] */
 async function fetchSensorHistory() {
   try {
     return await fetchSensorHistorySDK();
   } catch (sdkErr) {
-    // If SDK failed with a network/400 error, try REST
     console.warn('SDK query failed; attempting REST fallback.', sdkErr && sdkErr.message ? sdkErr.message : sdkErr);
     try {
       return await fetchSensorHistoryREST();
@@ -643,7 +617,6 @@ async function fetchSensorHistory() {
   }
 }
 
-// initial load + attach realtime listener (SDK-based)
 async function refreshCharts() {
   try {
     const samples = await fetchSensorHistory();
@@ -656,9 +629,9 @@ async function refreshCharts() {
 
 refreshCharts();
 
-// attach realtime (recommended). If realtime subscription errors, fallback polling will still update charts.
+/* Realtime listener: also use limitToLast so listener gets the latest push nodes */
 try {
-  const qRealtime = query(REF, orderByChild('timestamp'), limitToLast(SAMPLE_LIMIT));
+  const qRealtime = query(REF, limitToLast(SAMPLE_LIMIT));
   onValue(qRealtime, (snapshot) => {
     if (!snapshot.exists()) {
       console.log('Realtime listener: no data');
@@ -674,10 +647,9 @@ try {
   console.warn('Failed to attach realtime listener (will rely on polling):', e);
 }
 
-// polling fallback
 setInterval(refreshCharts, 15000);
-
 </script>
+
 
 <script type="module" src="./users-logincount-pie.js"></script>
 
