@@ -196,36 +196,39 @@ void loop() {
     Serial.printf("[DHT] T=%.1f H=%.1f\n", (isnan(temperature)?0.0:temperature), (isnan(humidity)?0.0:humidity));
   }
 
-  // compute brightness (0..maxBrightness)
-  int brightness = map(lightValue, darkThreshold, lightThreshold, 0, maxBrightness);
-  brightness = constrain(brightness, 0, maxBrightness);
-
-  // map logical brightness (0..maxBrightness) to PWM 0..255 for analogWrite
-  int pwmVal = map(brightness, 0, maxBrightness, 0, 255);
-
+  int brightness;
   int redPWM = 0, greenPWM = 0, bluePWM = 0;
 
   // Apply override from remote control if present (remoteLedState)
   // remoteLedState == 1 => force ON; == 0 => force OFF; == 2 => automatic
   if (remoteLedState == 1) {
     ledsActive = true;
+    brightness = maxBrightness;
   } else if (remoteLedState == 0) {
     ledsActive = false;
+  } else {
+    brightness = map(lightValue, darkThreshold, lightThreshold, 0, maxBrightness);
   }
 
-  if (ledsActive) {
+  brightness = constrain(brightness, 0, maxBrightness);
+
+  if (ledsActive && (remoteLedState == 2)) {
     if (!isnan(temperature)) {
       if (temperature < coldThreshold) {
-        bluePWM = pwmVal;
+        bluePWM = brightness;
       } else if (temperature > hotThreshold) {
-        redPWM = pwmVal;
-        greenPWM = (int)(pwmVal * 0.45);
+        redPWM = brightness;
+        greenPWM = (int)(brightness * 0.45);
       } else {
-        greenPWM = pwmVal;
+        greenPWM = brightness;
       }
     } else {
-      greenPWM = pwmVal;
+      greenPWM = brightness;
     }
+  } else if (ledsActive && (remoteLedState == 1)) {
+    redPWM = brightness;
+    greenPWM = brightness;
+    bluePWM = brightness;
   }
 
   // apply PWM using analogWrite
