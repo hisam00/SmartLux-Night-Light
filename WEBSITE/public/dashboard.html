@@ -119,71 +119,43 @@
                                 </form>
                             </div>
                         </li>
-                        <!-- Nav Item - Alerts -->
+
+                        <!-- Nav Item - Alerts (replaced inner content so JS can populate) -->
                         <li class="nav-item dropdown no-arrow mx-1">
-                            <a
-                                class="nav-link dropdown-toggle"
-                                href="#"
-                                id="alertsDropdown"
-                                role="button"
-                                data-toggle="dropdown"
-                                aria-haspopup="true"
-                                aria-expanded="false"
-                            >
-                                <i class="fas fa-bell fa-fw"></i>
-                                <!-- Counter - Alerts -->
-                                <span class="badge badge-danger badge-counter">3+</span>
-                            </a>
-                            <!-- Dropdown - Alerts -->
-                            <div
-                                class="dropdown-list dropdown-menu dropdown-menu-right shadow animated--grow-in"
-                                aria-labelledby="alertsDropdown"
-                            >
-                                <h6 class="dropdown-header">Alerts Center</h6>
-                                <a class="dropdown-item d-flex align-items-center" href="#">
-                                    <div class="mr-3">
-                                        <div class="icon-circle bg-primary">
-                                            <i class="fas fa-file-alt text-white"></i>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div class="small text-gray-500">December 12, 2019</div>
-                                        <span class="font-weight-bold">
-                                            A new monthly report is ready to download!
-                                        </span>
-                                    </div>
-                                </a>
-                                <a class="dropdown-item d-flex align-items-center" href="#">
-                                    <div class="mr-3">
-                                        <div class="icon-circle bg-success">
-                                            <i class="fas fa-donate text-white"></i>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div class="small text-gray-500">December 7, 2019</div>
-                                        $290.29 has been deposited into your account!
-                                    </div>
-                                </a>
-                                <a class="dropdown-item d-flex align-items-center" href="#">
-                                    <div class="mr-3">
-                                        <div class="icon-circle bg-warning">
-                                            <i class="fas fa-exclamation-triangle text-white"></i>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div class="small text-gray-500">December 2, 2019</div>
-                                        Spending Alert: We've noticed unusually high spending for your
-                                        account.
-                                    </div>
-                                </a>
-                                <a
-                                    class="dropdown-item text-center small text-gray-500"
-                                    href="#"
-                                    >Show All Alerts</a
-                                >
-                            </div>
+                          <a
+                              class="nav-link dropdown-toggle"
+                              href="#"
+                              id="alertsDropdown"
+                              role="button"
+                              data-toggle="dropdown"
+                              aria-haspopup="true"
+                              aria-expanded="false"
+                          >
+                              <i class="fas fa-bell fa-fw"></i>
+                              <!-- Counter - Alerts (give an id we can update) -->
+                              <span id="alertsBadge" class="badge badge-danger badge-counter">0</span>
+                          </a>
+                          <!-- Dropdown - Alerts (give the container an id) -->
+                          <div
+                              id="alertsDropdownMenu"
+                              class="dropdown-list dropdown-menu dropdown-menu-right shadow animated--grow-in"
+                              aria-labelledby="alertsDropdown"
+                          >
+                              <h6 class="dropdown-header">Alerts Center</h6>
+
+                              <!-- container we'll populate dynamically -->
+                              <div id="alertsList" style="max-height: 360px; overflow:auto; padding: 0.25rem 0;"></div>
+
+								<button
+								  id="clearAlertsButton"
+								  class="dropdown-item text-center small text-gray-500"
+								  type="button"
+								>Clear Alerts</button>
+
+                          </div>
                         </li>
 
+                        <!-- Nav Item - User Information -->
                         <div class="topbar-divider d-none d-sm-block"></div>
                         <!-- Nav Item - User Information -->
                         <li class="nav-item dropdown no-arrow">
@@ -562,6 +534,188 @@ async function refreshChartsOnce() {
 loadCacheAndRender();
 refreshChartsOnce();
 
+/* ==========================
+   Alerts subsystem (inserted here so helper functions above exist)
+   - shows high-temp and motion alerts in alerts dropdown
+   ========================== */
+
+const ALERT_TEMP_THRESHOLD = 33; // °C - change as needed
+const ALERT_DEDUP_MS = 30 * 1000; // suppress duplicate alerts of same type within 30s
+const ALERTS_LS_KEY = `sl_alerts_${DEVICE_ID}`;
+const ALERT_MAX = 50;
+
+let alerts = []; // newest first
+let lastAlertTsByKey = {}; // dedupe map: key -> lastTs
+
+function loadAlertsFromCache() {
+  try {
+    const raw = localStorage.getItem(ALERTS_LS_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) { return []; }
+}
+
+function saveAlertsToCache() {
+  try {
+    localStorage.setItem(ALERTS_LS_KEY, JSON.stringify(alerts.slice(0, ALERT_MAX)));
+  } catch (e) {}
+}
+
+function formatTs(tsMs) {
+  try { return new Date(tsMs).toLocaleString(); } catch (e) { return ''; }
+}
+
+function makeAlertId(type, ts) {
+  return `${type}_${ts}`;
+}
+
+/**
+ * Add an alert (dedupes repeated identical alerts within ALERT_DEDUP_MS)
+ * type: 'temp' | 'motion' | string
+ * title: short title
+ * message: longer text
+ * tsMs: numeric timestamp (ms)
+ * meta: optional object (will be JSON-stringified when saved)
+ */
+function addAlert(type, title, message, tsMs = Date.now(), meta = {}) {
+  const dedupeKey = `${type}:${message}`; // dedupe by type+message text
+  const last = lastAlertTsByKey[dedupeKey] || 0;
+  if (tsMs - last < ALERT_DEDUP_MS) return; // ignore rapid repeat
+
+  lastAlertTsByKey[dedupeKey] = tsMs;
+
+  const item = {
+    id: makeAlertId(type, tsMs),
+    type,
+    title,
+    message,
+    ts: tsMs,
+    read: false,
+    meta
+  };
+
+  alerts.unshift(item);
+  if (alerts.length > ALERT_MAX) alerts = alerts.slice(0, ALERT_MAX);
+
+  saveAlertsToCache();
+  renderAlerts();
+}
+
+/** Render alerts into dropdown and update badge */
+function renderAlerts() {
+  const listEl = document.getElementById('alertsList');
+  const badgeEl = document.getElementById('alertsBadge');
+  if (!listEl || !badgeEl) return;
+
+  listEl.innerHTML = '';
+
+  if (alerts.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'dropdown-item text-center small text-gray-500';
+    empty.style.pointerEvents = 'none';
+    empty.textContent = 'No alerts';
+    listEl.appendChild(empty);
+    badgeEl.textContent = '0';
+    return;
+  }
+
+  // show up to 10 items visually
+  const toShow = alerts.slice(0, 10);
+  for (const a of toShow) {
+    const aEl = document.createElement('a');
+    aEl.href = '#';
+    aEl.className = 'dropdown-item d-flex align-items-center';
+    aEl.dataset.alertId = a.id;
+    aEl.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      // mark read on click
+      a.read = true;
+      saveAlertsToCache();
+      renderAlerts();
+      // optionally: open a modal or scroll to details; left as extension
+    });
+
+    const iconWrap = document.createElement('div');
+    iconWrap.className = 'mr-3';
+    const iconCircle = document.createElement('div');
+    iconCircle.className = 'icon-circle text-white';
+    // choose color and icon by type
+    let bgClass = 'bg-primary';
+    let iconClass = 'fas fa-info';
+    if (a.type === 'temp') { bgClass = 'bg-danger'; iconClass = 'fas fa-thermometer-half'; }
+    else if (a.type === 'motion') { bgClass = 'bg-warning'; iconClass = 'fas fa-walking'; }
+    else { bgClass = 'bg-secondary'; iconClass = 'fas fa-bell'; }
+    iconCircle.className = `icon-circle ${bgClass}`;
+    const iEl = document.createElement('i');
+    iEl.className = `${iconClass} text-white`;
+    iconCircle.appendChild(iEl);
+    iconWrap.appendChild(iconCircle);
+
+    const content = document.createElement('div');
+    const timeSmall = document.createElement('div');
+    timeSmall.className = 'small text-gray-500';
+    timeSmall.textContent = formatTs(a.ts);
+    const bodySpan = document.createElement('span');
+    bodySpan.className = a.read ? '' : 'font-weight-bold';
+    bodySpan.textContent = a.title + (a.message ? (' — ' + a.message) : '');
+
+    content.appendChild(timeSmall);
+    content.appendChild(bodySpan);
+
+    aEl.appendChild(iconWrap);
+    aEl.appendChild(content);
+    listEl.appendChild(aEl);
+  }
+
+  // update badge to show unread count
+  const unread = alerts.filter(x => !x.read).length;
+  badgeEl.textContent = unread > 99 ? '99+' : String(unread);
+}
+
+/** Initialize alerts from cache and render */
+alerts = loadAlertsFromCache();
+renderAlerts();
+
+// Clear alerts button handler
+(function attachClearAlerts() {
+  const btn = document.getElementById('clearAlertsButton');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    // simple confirm to avoid accidental clears
+    //if (!confirm('Clear all alerts? This will remove them from this browser.')) return;
+    alerts = [];                 // remove in-memory items
+    lastAlertTsByKey = {};       // reset dedupe map
+    try { localStorage.removeItem(ALERTS_LS_KEY); } catch(e) {} // remove persisted alerts
+    renderAlerts();              // update UI (badge & list)
+  });
+})();
+
+
+function checkSampleForAlerts(s) {
+  if (!s) return;
+  const ts = sampleTimestampMs(s);
+
+  // 1) high temperature
+  if (typeof s.temperature === 'number' && s.temperature >= ALERT_TEMP_THRESHOLD) {
+    const title = `High temperature: ${s.temperature}°C`;
+    const msg = `Device ${DEVICE_ID} reported ${s.temperature}°C`;
+    addAlert('temp', title, msg, ts, { sample: s });
+  }
+
+  // 2) motion detected (only when the value indicates motion true/1)
+  // Assume motion is boolean or numeric
+  if (s.motion && (s.motion === true || s.motion === 1 || s.motion === '1' || s.motion === 'true')) {
+    const title = `Motion detected`;
+    const msg = `Motion detected on ${DEVICE_ID}`;
+    addAlert('motion', title, msg, ts, { sample: s });
+  }
+}
+
+/* ==========================
+   End of alerts subsystem
+   ========================== */
+
 // realtime listener: use limitToLast so we get the recent push nodes; only append items newer than lastTsMs
 try {
   const qRealtime = query(REF, limitToLast(LIVE_LIMIT));
@@ -574,7 +728,11 @@ try {
     let appended = false;
     for (const s of items) {
       const added = pushSampleToBuffers(s);
-      if (added) appended = true;
+      if (added) {
+        // NEW: check for alerts on each newly-added sample
+        try { checkSampleForAlerts(s); } catch (e) { console.error('Alert check error', e); }
+        appended = true;
+      }
     }
     if (appended) { scheduleRender(); saveCacheDebounced(); }
   }, (e) => { console.error('Realtime listener error', e); });
