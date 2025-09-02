@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+<title>SmartLux Night Light - Admin Control Panel</title>
+<link href="vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css" />
+<link href="https://fonts.googleapis.com/css?family=Nunito:200,300,400,600,700,800,900" rel="stylesheet" />
+<link href="css/sb-admin-2.min.css" rel="stylesheet" />
+<style>
+/* Override sidebar background with warm sunset gradient */
+  #accordionSidebar.bg-gradient-primary {
+    background: #8963BA !important;
+  }
+
+
+.sidebar-logo-img {
+  width: 60px;
+  height: auto;
+  margin-right: 0px;
+  margin-top: 15px;
+  margin-left: 0px;
+}
+.sidebar-brand-text {
+  font-size: 12px;
+  margin-left: 0;
+  margin-right: 18px;
+}
+.control-buttons {
+  margin-top: 20px;
+}
+.control-buttons button {
+  width: 120px;
+  margin-right: 10px;
+  margin-bottom: 15px;
+}
+.input-group {
+  margin-top: 50px;
+}
+</style>
+</head>
+<body id="page-top">
+
+<!-- Page Wrapper -->
+<div id="wrapper">
+
+  <!-- Sidebar -->
+  <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
+
+    <!-- Sidebar - Brand -->
+    <a class="sidebar-brand d-flex align-items-center justify-content-center" href="dashboardadmin.html">
+      <img src="img/LOGONT.png" alt="Logo" class="sidebar-logo-img" />
+      <div class="sidebar-brand-text" style="font-size:15px;">SMARTLUX NIGHT LIGHT ADMIN</div>
+    </a>
+
+    <!-- Divider -->
+            <hr class="sidebar-divider my-0" />
+            <!-- Nav Item - Dashboard -->
+            <li class="nav-item">
+                <a class="nav-link" href="dashboardadmin.html">
+                    <i class="fas fa-fw fa-tachometer-alt"></i>
+                    <span>Dashboard</span></a
+                >
+            </li>
+			
+			
+			<!-- USER ACCESS CONTROL -->
+            <hr class="sidebar-divider my-0" />
+            <!-- Nav Item - Dashboard -->
+            <li class="nav-item">
+				<a class="nav-link" href="users.html">
+					<!-- <img src="img/iconUsers.png" alt="Users Icon" style="width:20px; height:20px; margin-right:8px;"> -->
+					<i class="fas fa-users"></i>
+					<span>Users</span>
+				</a>
+			</li>
+
+			<hr class="sidebar-divider my-0" />
+    <!-- Nav Item - Control Admin -->
+    <li class="nav-item active">
+      <a class="nav-link" href="controladmin.html">
+        <i class="fas fa-fw fa-cogs"></i>
+        <span>Control</span>
+      </a>
+    </li>
+
+    <hr class="sidebar-divider d-none d-md-block" />
+    <!-- Sidebar Toggler (Sidebar) -->
+    <div class="text-center d-none d-md-inline">
+      <button class="rounded-circle border-0" id="sidebarToggle"></button>
+    </div>
+
+  </ul>
+  <!-- End of Sidebar -->
+
+  <!-- Content Wrapper -->
+  <div id="content-wrapper" class="d-flex flex-column">
+
+    <!-- Main Content -->
+    <div id="content">
+
+      <!-- Topbar -->
+      <nav class="navbar navbar-expand navbar-light bg-white topbar mb-4 static-top shadow">
+
+        <!-- Sidebar Toggle (Topbar) -->
+        <button id="sidebarToggleTop" class="btn btn-link d-md-none rounded-circle mr-3">
+          <i class="fa fa-bars"></i>
+        </button>
+
+        <!-- Topbar Navbar -->
+        <ul class="navbar-nav ml-auto">
+
+          <!-- Alerts -->
+          <li class="nav-item dropdown no-arrow mx-1">
+            <a class="nav-link dropdown-toggle" href="#" id="alertsDropdown" role="button" data-toggle="dropdown" 
+              aria-haspopup="true" aria-expanded="false">
+              <i class="fas fa-bell fa-fw"></i>
+              <span id="alertsBadge" class="badge badge-danger badge-counter">0</span>
+            </a>
+            <div id="alertsDropdownMenu" class="dropdown-list dropdown-menu dropdown-menu-right shadow animated--grow-in" aria-labelledby="alertsDropdown">
+              <h6 class="dropdown-header">Alerts Center</h6>
+              <div id="alertsList" style="max-height:360px; overflow:auto; padding:0.25rem 0;"></div>
+              <button id="clearAlertsButton" class="dropdown-item text-center small text-gray-500" type="button">Clear Alerts</button>
+            </div>
+          </li>
+
+          <div class="topbar-divider d-none d-sm-block"></div>
+
+          <!-- User Information -->
+          <li class="nav-item dropdown no-arrow">
+            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-toggle="dropdown"
+               aria-haspopup="true" aria-expanded="false">
+              <span id="topbarUsername" class="mr-2 d-none d-lg-inline text-gray-600 small">Admin</span>
+              <img id="topbarAvatar" class="img-profile rounded-circle" src="img/undraw_profile.svg" />
+            </a>
+            <div class="dropdown-menu dropdown-menu-right shadow animated--grow-in" aria-labelledby="userDropdown">
+              <a class="dropdown-item" href="profileadmin.html">
+                <i class="fas fa-user fa-sm fa-fw mr-2 text-gray-400"></i>
+                Profile
+              </a>
+              <div class="dropdown-divider"></div>
+              <a class="dropdown-item" href="#" data-toggle="modal" data-target="#logoutModal">
+                <i class="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-gray-400"></i>
+                Logout
+              </a>
+            </div>
+          </li>
+
+        </ul>
+
+      </nav>
+      <!-- End of Topbar -->
+
+      <!-- Begin Page Content -->
+      <div class="container-fluid">
+
+        <h1 class="h3 mb-4 text-gray-800">Admin Control Panel</h1>
+
+        <div class="control-buttons">
+          <button id="btnReboot" class="btn btn-warning" disabled>Reboot</button>
+          <button id="btnLight" class="btn btn-primary">Light</button>
+        </div>
+
+        <div class="mb-3 mt-4">
+          <label for="inputMotionUrl" class="form-label">Motion URL:</label>
+          <input type="text" id="inputMotionUrl" class="form-control" placeholder="Enter motion URL" />
+        </div>
+
+        <div class="mb-3 mt-4">
+          <label for="inputTempUrl" class="form-label">Temperature URL:</label>
+          <input type="text" id="inputTempUrl" class="form-control" placeholder="Enter temperature URL" />
+        </div>
+
+      </div>
+      <!-- /.container-fluid -->
+
+      <!-- Logout Modal -->
+      <div class="modal fade" id="logoutModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="exampleModalLabel">Ready to Leave?</h5>
+              <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
+            <div class="modal-body">
+              Select "Logout" below if you are ready to end your current session.
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancel</button>
+              <a class="btn btn-primary" href="login.html">Logout</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <!-- End of Main Content -->
+  </div>
+  <!-- End of Content Wrapper -->
+
+</div>
+<!-- End of Page Wrapper -->
+
+<!-- Scripts -->
+<script src="vendor/jquery/jquery.min.js"></script>
+<script src="vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="vendor/jquery-easing/jquery.easing.min.js"></script>
+<script src="js/sb-admin-2.min.js"></script>
+
+<script type="module">
+import { rtdb } from './firebase-config.js';
+import { ref, onValue, get, set } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js";
+
+const DEVICE_ID = "device01";
+const LED_CONTROL_PATH = `devices/${DEVICE_ID}/control/led`;
+
+const btnLight = document.getElementById('btnLight');
+const inputMotionUrl = document.getElementById('inputMotionUrl');
+const inputTempUrl = document.getElementById('inputTempUrl');
+
+let lightValue = null;
+let cooldown = false;
+
+function updateLightButton(val) {
+  lightValue = val;
+  btnLight.disabled = false;
+  switch(val) {
+    case 0:
+      btnLight.textContent = "Light OFF";
+      btnLight.className = "btn btn-danger";
+      break;
+    case 1:
+      btnLight.textContent = "Light ON";
+      btnLight.className = "btn btn-success";
+      break;
+    case 2:
+      btnLight.textContent = "Light AUTO";
+      btnLight.className = "btn btn-primary";
+      break;
+    default:
+      btnLight.textContent = "Light Unknown";
+      btnLight.className = "btn btn-secondary";
+      break;
+  }
+}
+
+const ledRef = ref(rtdb, LED_CONTROL_PATH);
+onValue(ledRef, (snapshot) => {
+  const val = snapshot.val();
+  if ([0,1,2].includes(val)) {
+    updateLightButton(val);
+    cooldown = false;
+  }
+});
+
+btnLight.addEventListener('click', async () => {
+  if (cooldown) return;
+  btnLight.disabled = true;
+  try {
+    const snapshot = await get(ledRef);
+    if (!snapshot.exists()) {
+      alert("LED value not found in database.");
+      btnLight.disabled = false;
+      return;
+    }
+    const currentVal = snapshot.val();
+    let nextVal = 0;
+    if (currentVal === 0) nextVal = 1;
+    else if (currentVal === 1) nextVal = 2;
+    else if (currentVal === 2) nextVal = 0;
+    else nextVal = 0;
+    await set(ledRef, nextVal);
+    cooldown = true;
+    setTimeout(() => {
+      cooldown = false;
+      btnLight.disabled = false;
+    }, 3000);
+  } catch (error) {
+    alert("Failed to update LED state: " + error.message);
+    btnLight.disabled = false;
+    cooldown = false;
+  }
+});
+
+const URL_MOTION_PATH = `devices/${DEVICE_ID}/control/url_motion`;
+const URL_TEMP_PATH = `devices/${DEVICE_ID}/control/url_temp`;
+const motionUrlRef = ref(rtdb, URL_MOTION_PATH);
+const tempUrlRef = ref(rtdb, URL_TEMP_PATH);
+onValue(motionUrlRef, (snapshot) => {
+  inputMotionUrl.value = snapshot.val() || '';
+});
+onValue(tempUrlRef, (snapshot) => {
+  inputTempUrl.value = snapshot.val() || '';
+});
+let motionUrlTimeout, tempUrlTimeout;
+inputMotionUrl.addEventListener('input', () => {
+  clearTimeout(motionUrlTimeout);
+  motionUrlTimeout = setTimeout(() => {
+    set(motionUrlRef, inputMotionUrl.value);
+  }, 500);
+});
+inputTempUrl.addEventListener('input', () => {
+  clearTimeout(tempUrlTimeout);
+  tempUrlTimeout = setTimeout(() => {
+    set(tempUrlRef, inputTempUrl.value);
+  }, 500);
+});
+</script>
+
+</body>
+</html>
