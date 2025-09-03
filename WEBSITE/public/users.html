@@ -572,15 +572,32 @@ $('#usersTable tbody').on('click', 'button.delete-btn', async function () {
       }
     }
 
-    onAuthStateChanged(auth, (user) => {
-      if (user) {
-        $('#topbarUsername').text(user.displayName || (user.email ? user.email.split('@')[0] : 'User'));
-        $('#topbarAvatar').attr('src', user.photoURL || 'img/undraw_profile.svg');
-      } else {
-        $('#topbarUsername').text('Guest');
-        $('#topbarAvatar').attr('src', 'img/undraw_profile.svg');
-      }
-    });
+	onAuthStateChanged(auth, async (user) => {
+	  if (user) {
+		// Prefer the username stored in Firestore users collection; fallback to displayName then email prefix.
+		let displayName = 'User';
+		try {
+		  const userDocRef = doc(db, 'users', user.uid);
+		  const userSnap = await getDoc(userDocRef);
+		  if (userSnap.exists() && userSnap.data().username) {
+			displayName = userSnap.data().username;
+		  } else if (user.displayName) {
+			displayName = user.displayName;
+		  } else if (user.email) {
+			displayName = user.email.split('@')[0];
+		  }
+		} catch (err) {
+		  console.warn('Failed to load Firestore user doc for topbar username:', err);
+		  displayName = user.displayName || (user.email ? user.email.split('@')[0] : 'User');
+		}
+
+		$('#topbarUsername').text(displayName);
+		$('#topbarAvatar').attr('src', user.photoURL || 'img/undraw_profile.svg');
+	  } else {
+		$('#topbarUsername').text('Guest');
+		$('#topbarAvatar').attr('src', 'img/undraw_profile.svg');
+	  }
+	});
   });
 </script>
 
