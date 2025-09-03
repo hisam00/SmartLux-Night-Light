@@ -131,7 +131,7 @@
         <h1 class="h3 mb-4 text-gray-800">Admin Control Panel</h1>
 
         <div class="control-buttons">
-          <button id="btnReboot" class="btn btn-warning" disabled>Reboot</button>
+          <button id="btnReboot" class="btn btn-warning" >Reboot</button>
           <button id="btnLight" class="btn btn-primary">Light</button>
         </div>
 
@@ -389,6 +389,74 @@ auth.onAuthStateChanged(user => {
     mySubIdTemp = null;
   }
 });
+
+
+
+// ----------------------------------------------------------------------
+// reboot function
+
+const REBOOT_CONTROL_PATH = `devices/${DEVICE_ID}/control/reboot`;
+let rebootCooldown = false;
+
+// Update Reboot button UI based on reboot state
+function updateRebootButton(val) {
+  if (val === 1) {
+    btnReboot.textContent = "Rebooting...";
+    btnReboot.disabled = true;
+  } else if (val === 0) {
+    btnReboot.textContent = "Reboot";
+    btnReboot.disabled = rebootCooldown;
+  } else {
+    btnReboot.textContent = "Reboot";
+    btnReboot.disabled = rebootCooldown;
+  }
+}
+
+// Reference to reboot state in RTDB
+const rebootRef = ref(rtdb, REBOOT_CONTROL_PATH);
+
+// Listen for reboot state changes and update UI dynamically
+onValue(rebootRef, (snapshot) => {
+  const val = snapshot.val();
+  if (val === 0 || val === 1) {
+    updateRebootButton(val);
+
+    // If device has reset reboot to 0 (finished reboot), clear cooldown state
+    if (val === 0 && rebootCooldown) {
+      rebootCooldown = false;
+      btnReboot.disabled = false;
+    }
+  }
+});
+
+// Reboot button click handler
+btnReboot.addEventListener('click', async () => {
+  if (rebootCooldown) return;
+
+  try {
+    // Set reboot flag to 1
+    await set(rebootRef, 1);
+    updateRebootButton(1);
+    rebootCooldown = true;
+
+    // Start cooldown timer of 5 seconds
+    setTimeout(async () => {
+      rebootCooldown = false;
+      // Check database value after cooldown to enable button if reboot flag reset
+      const snap = await get(rebootRef);
+      if (snap.exists() && snap.val() === 0) {
+        btnReboot.disabled = false;
+        updateRebootButton(0);
+      }
+    }, 5000);
+  } catch (error) {
+    alert("Failed to trigger reboot: " + error.message);
+    btnReboot.disabled = false;
+    rebootCooldown = false;
+  }
+});
+
+
 </script>
 
 <!-- profile + auth logic (unchanged except reused auth instance) -->
