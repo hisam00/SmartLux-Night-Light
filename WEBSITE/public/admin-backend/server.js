@@ -190,5 +190,285 @@ app.post('/api/sendResetLink', async (req, res) => {
 });
 
 
-const PORT = 3000;
-app.listen(PORT, () => console.log(`Admin backend running at http://localhost:${PORT}`));
+// ======= add these requires near top of server.js =======
+const axios = require('axios');
+
+// ======= Middleware to verify Firebase ID token (Authorization: Bearer <idToken>) =======
+async function verifyFirebaseToken(req, res, next) {
+  try {
+    const authHeader = req.headers.authorization || '';
+    if (!authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ ok: false, error: 'Missing or invalid Authorization header' });
+    }
+    const idToken = authHeader.split('Bearer ')[1].trim();
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    req.user = { uid: decoded.uid, email: decoded.email, admin: !!decoded.admin };
+    return next();
+  } catch (err) {
+    console.error('verify token failed', err);
+    return res.status(401).json({ ok: false, error: 'Invalid token' });
+  }
+}
+
+// ======= helper =======
+function isValidUrl(u) {
+  try {
+    const parsed = new URL(u);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch (e) {
+    return false;
+  }
+}
+
+// ======= Firestore shape (collection 'webhooks', doc.id == deviceId) =======
+// { motion: [ { id, url, owner, createdAt, updatedAt }, ... ],
+//   temperature: [ ... ] }
+
+// helper to read subscriber URLs for a device/event (deduped)
+async function getSubscribers(deviceId, eventType) {
+  try {
+    const doc = await firestore.collection('webhooks').doc(deviceId).get();
+    if (!doc.exists) return [];
+    const data = doc.data() || {};
+    let subs = [];
+    if (eventType === 'motion') subs = Array.isArray(data.motion) ? data.motion : [];
+    else subs = Array.isArray(data.temperature) ? data.temperature : [];
+    const urls = subs.map(s => s.url).filter(Boolean);
+    return Array.from(new Set(urls)); // dedupe
+  } catch (err) {
+    console.error('getSubscribers error', err);
+    return [];
+  }
+}
+
+// ======= Add subscription (user-owned) =======
+app.post('/api/webhooks/:deviceId', verifyFirebaseToken, async (req, res) => {
+  try {
+    const deviceId = req.params.deviceId;
+    const { event, url } = req.body || {};
+    if (!deviceId || !event || !url) return res.status(400).json({ ok: false, error: 'deviceId, event and url are required' });
+    if (!isValidUrl(url)) return res.status(400).json({ ok: false, error: 'Invalid URL' });
+
+    const eventKey = (event === 'motion') ? 'motion' : 'temperature';
+    const ownerUid = req.user.uid;
+    const subId = firestore.collection('webhooks').doc().id; // generate id
+
+    const ref = firestore.collection('webhooks').doc(deviceId);
+    await firestore.runTransaction(async (t) => {
+      const snap = await t.get(ref);
+      const data = snap.exists ? snap.data() : {};
+      const arr = Array.isArray(data[eventKey]) ? data[eventKey].slice() : [];
+      arr.push({
+        id: subId,
+        url,
+        owner: ownerUid,
+        createdAt: admin.firestore.Timestamp.now(),
+      });
+      t.set(ref, { ...data, [eventKey]: arr }, { merge: true });
+    });
+
+    return res.status(201).json({ ok: true, id: subId, message: 'Webhook added' });
+  } catch (err) {
+    console.error('Add webhook error', err);
+    return res.status(500).json({ ok: false, error: err.message || err });
+  }
+});
+
+// ======= Edit subscription (owner only) =======
+app.patch('/api/webhooks/:deviceId/:subId', verifyFirebaseToken, async (req, res) => {
+  try {
+    const deviceId = req.params.deviceId;
+    const subId = req.params.subId;
+    const { url, event } = req.body || {};
+    if (!deviceId || !subId) return res.status(400).json({ ok: false, error: 'deviceId and subId required' });
+    if (url && !isValidUrl(url)) return res.status(400).json({ ok: false, error: 'Invalid URL' });
+
+    let targetEventKey = null;
+    if (typeof event === 'string') {
+      if (event === 'motion') targetEventKey = 'motion';
+      else if (event === 'temperature' || event === 'high_temperature') targetEventKey = 'temperature';
+      else return res.status(400).json({ ok: false, error: 'Invalid event type' });
+    }
+
+    const uid = req.user.uid;
+    const isAdmin = req.user.admin || false;
+    const ref = firestore.collection('webhooks').doc(deviceId);
+
+    const updated = await firestore.runTransaction(async (t) => {
+      const snap = await t.get(ref);
+      if (!snap.exists) throw { code: 404, message: 'Device webhooks not found' };
+      const data = snap.data() || {};
+      const keys = ['motion', 'temperature'];
+
+      let foundKey = null, foundIndex = -1, foundObj = null;
+      for (const k of keys) {
+        const arr = Array.isArray(data[k]) ? data[k].slice() : [];
+        const idx = arr.findIndex(s => s.id === subId);
+        if (idx !== -1) {
+          foundKey = k; foundIndex = idx; foundObj = arr[idx];
+          break;
+        }
+      }
+      if (!foundObj) throw { code: 404, message: 'Subscription not found' };
+      if (!isAdmin && foundObj.owner !== uid) throw { code: 403, message: 'Forbidden: not owner' };
+
+      const newData = Object.assign({}, data);
+      for (const k of keys) newData[k] = Array.isArray(data[k]) ? data[k].slice() : [];
+
+      if (url) {
+        foundObj.url = url;
+        foundObj.updatedAt = admin.firestore.Timestamp.now();
+        newData[foundKey][foundIndex] = foundObj;
+      }
+
+      if (targetEventKey && targetEventKey !== foundKey) {
+        newData[foundKey].splice(foundIndex, 1);
+        const moved = Object.assign({}, foundObj);
+        moved.updatedAt = admin.firestore.Timestamp.now();
+        newData[targetEventKey].push(moved);
+      }
+
+      t.set(ref, newData, { merge: true });
+      return { id: foundObj.id, url: (url || foundObj.url), owner: foundObj.owner, event: targetEventKey || foundKey };
+    });
+
+    return res.json({ ok: true, updated: updated });
+  } catch (err) {
+    console.error('Edit webhook error', err);
+    if (err && err.code === 404) return res.status(404).json({ ok: false, error: err.message || 'Not found' });
+    if (err && err.code === 403) return res.status(403).json({ ok: false, error: err.message || 'Forbidden' });
+    return res.status(500).json({ ok: false, error: err.message || err });
+  }
+});
+
+// ======= Delete subscription (owner only) =======
+app.delete('/api/webhooks/:deviceId/:subId', verifyFirebaseToken, async (req, res) => {
+  try {
+    const deviceId = req.params.deviceId;
+    const subId = req.params.subId;
+    if (!deviceId || !subId) return res.status(400).json({ ok: false, error: 'deviceId and subId required' });
+
+    const uid = req.user.uid;
+    const isAdmin = req.user.admin || false;
+    const ref = firestore.collection('webhooks').doc(deviceId);
+
+    const success = await firestore.runTransaction(async (t) => {
+      const snap = await t.get(ref);
+      if (!snap.exists) return false;
+      const data = snap.data();
+      const keys = ['motion', 'temperature'];
+      let found = false;
+      const newData = Object.assign({}, data);
+      for (const k of keys) {
+        const arr = Array.isArray(data[k]) ? data[k].slice() : [];
+        const idx = arr.findIndex(s => s.id === subId);
+        if (idx !== -1) {
+          if (!isAdmin && arr[idx].owner !== uid) throw new Error('Not authorized to delete this subscription');
+          arr.splice(idx, 1);
+          newData[k] = arr;
+          found = true;
+          break;
+        }
+      }
+      if (!found) return false;
+      t.set(ref, newData, { merge: true });
+      return true;
+    });
+
+    if (!success) return res.status(404).json({ ok: false, error: 'Subscription not found' });
+    return res.json({ ok: true, message: 'Subscription deleted' });
+  } catch (err) {
+    if (err.message && err.message.includes('Not authorized')) {
+      return res.status(403).json({ ok: false, error: 'Forbidden' });
+    }
+    console.error('Delete webhook error', err);
+    return res.status(500).json({ ok: false, error: err.message || err });
+  }
+});
+
+// ======= List subscriptions (admin sees all; normal users see only their own) =======
+app.get('/api/webhooks/:deviceId', verifyFirebaseToken, async (req, res) => {
+  try {
+    const deviceId = req.params.deviceId;
+    const uid = req.user.uid;
+    const isAdmin = req.user.admin || false;
+    const doc = await firestore.collection('webhooks').doc(deviceId).get();
+    if (!doc.exists) return res.json({ ok: true, motion: [], temperature: [] });
+    const data = doc.data();
+
+    if (isAdmin) return res.json({ ok: true, ...data });
+
+    const motion = (data.motion || []).filter(s => s.owner === uid);
+    const temperature = (data.temperature || []).filter(s => s.owner === uid);
+    return res.json({ ok: true, motion, temperature });
+  } catch (err) {
+    console.error('List webhooks error', err);
+    return res.status(500).json({ ok: false, error: err.message || err });
+  }
+});
+
+// ======= Forwarding endpoint (ESP -> this server) =======
+// Recommended: protect this endpoint with a query token. Set process.env.NOTIFY_TOKEN = 'LONGSECRET' in your env.
+// ESP will read this full URL from RTDB (devices/<id>/notify/motion_url etc)
+app.post('/api/notify/forward/:deviceId', async (req, res) => {
+  try {
+    // validate token if configured
+    const expected = process.env.NOTIFY_TOKEN || '';
+    const token = req.query.token || '';
+    if (expected && token !== expected) {
+      console.warn('[notify/forward] invalid or missing token');
+      return res.status(401).json({ ok: false, error: 'invalid token' });
+    }
+
+    const deviceId = req.params.deviceId;
+    const payload = req.body || {};
+
+    // respond fast so ESP isn't blocked
+    res.status(202).json({ ok: true, message: 'Accepted for forwarding' });
+
+    // determine event type from payload
+    const eventType = payload.event || payload.event_type || 'motion';
+    const normalizedEvent = (eventType === 'high_temperature' || eventType === 'temperature') ? 'high_temperature' : 'motion';
+    // map to our stored keys
+    const enumKey = (normalizedEvent === 'motion') ? 'motion' : 'temperature';
+
+    // fan-out asynchronously (non-blocking)
+    (async () => {
+      try {
+        const subs = await getSubscribers(deviceId, enumKey);
+        if (!subs || subs.length === 0) {
+          console.log(`[notify/forward] no subscribers for ${deviceId} ${enumKey}`);
+          return;
+        }
+
+        const axiosOpts = { timeout: 5000, headers: { 'Content-Type': 'application/json' } };
+        const promises = subs.map(url =>
+          axios.post(url, payload, axiosOpts)
+               .then(r => ({ url, status: r.status }))
+               .catch(e => ({ url, error: e.message || String(e) }))
+        );
+
+        const settled = await Promise.allSettled(promises);
+        settled.forEach((r, i) => {
+          if (r.status === 'fulfilled') {
+            console.log('[notify/forward] posted ->', subs[i], r.value);
+          } else {
+            console.warn('[notify/forward] failed ->', subs[i], r.reason);
+          }
+        });
+      } catch (err) {
+        console.error('[notify/forward] fan-out error', err);
+      }
+    })();
+
+  } catch (err) {
+    console.error('[notify/forward] error', err);
+    try { res.status(500).json({ ok: false, error: 'server error' }); } catch(e){/*ignore*/ }
+  }
+});
+
+
+const HOST = '0.0.0.0';
+const PORT = '3000';
+app.listen(PORT, HOST, () => console.log(`Server running at http://${HOST}:${PORT}`));
+
