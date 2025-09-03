@@ -211,19 +211,138 @@
 <script src="js/sb-admin-2.min.js"></script>
 
 <script type="module">
-import { rtdb } from './firebase-config.js';
+/*
+  Admin control page — keep structure unchanged.
+  Motion/Temp inputs sync with the current admin user's subscription via server API,
+  not the shared RTDB fields. LED control (RTDB) left intact.
+*/
+import { rtdb, auth } from './firebase-config.js';
 import { ref, onValue, get, set } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js";
 
+const API_BASE = `${location.protocol}//${location.hostname}:3000`; // adjust if your server is elsewhere
 const DEVICE_ID = "device01";
 const LED_CONTROL_PATH = `devices/${DEVICE_ID}/control/led`;
 
 const btnLight = document.getElementById('btnLight');
+const btnReboot = document.getElementById('btnReboot');
 const inputMotionUrl = document.getElementById('inputMotionUrl');
 const inputTempUrl = document.getElementById('inputTempUrl');
 
 let lightValue = null;
 let cooldown = false;
 
+// track this user's subscription IDs for this device
+let mySubIdMotion = null;
+let mySubIdTemp = null;
+
+// simple debounce
+function debounce(fn, wait){
+  let t = null;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(()=> fn(...args), wait);
+  };
+}
+
+// ---------- API helpers that use Firebase ID token ----------
+async function getIdToken() {
+  const user = auth.currentUser;
+  if (!user) throw new Error('User not signed in');
+  return await user.getIdToken();
+}
+
+async function apiRequest(path, method='GET', body=null) {
+  const token = await getIdToken();
+  const res = await fetch(API_BASE + path, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + token
+    },
+    body: body ? JSON.stringify(body) : null,
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(()=>null);
+    throw new Error(txt || `${res.status} ${res.statusText}`);
+  }
+  return await res.json();
+}
+
+// safe set without clobbering active editing
+function safeSetInput(el, val) {
+  if (!el) return;
+  if (document.activeElement === el) return;
+  el.value = val || '';
+}
+
+// load current user's subscriptions and populate inputs
+async function loadMySubscriptions() {
+  try {
+    const data = await apiRequest(`/api/webhooks/${DEVICE_ID}`, 'GET');
+    if (Array.isArray(data.motion) && data.motion.length > 0) {
+      mySubIdMotion = data.motion[0].id;
+      safeSetInput(inputMotionUrl, data.motion[0].url || '');
+    } else {
+      mySubIdMotion = null;
+      safeSetInput(inputMotionUrl, '');
+    }
+    if (Array.isArray(data.temperature) && data.temperature.length > 0) {
+      mySubIdTemp = data.temperature[0].id;
+      safeSetInput(inputTempUrl, data.temperature[0].url || '');
+    } else {
+      mySubIdTemp = null;
+      safeSetInput(inputTempUrl, '');
+    }
+  } catch (err) {
+    console.error('loadMySubscriptions error', err);
+    // leave inputs alone on error
+  }
+}
+
+// save (create/update/delete) subscription for given event
+async function saveMySubscription(eventKey, url) {
+  try {
+    if (!url || url.trim().length === 0) {
+      // delete subscription if exists
+      if (eventKey === 'motion' && mySubIdMotion) {
+        await apiRequest(`/api/webhooks/${DEVICE_ID}/${encodeURIComponent(mySubIdMotion)}`, 'DELETE');
+        mySubIdMotion = null;
+      } else if (eventKey === 'temperature' && mySubIdTemp) {
+        await apiRequest(`/api/webhooks/${DEVICE_ID}/${encodeURIComponent(mySubIdTemp)}`, 'DELETE');
+        mySubIdTemp = null;
+      }
+      return;
+    }
+
+    if (eventKey === 'motion') {
+      if (mySubIdMotion) {
+        await apiRequest(`/api/webhooks/${DEVICE_ID}/${encodeURIComponent(mySubIdMotion)}`, 'PATCH', { url });
+      } else {
+        const res = await apiRequest(`/api/webhooks/${DEVICE_ID}`, 'POST', { event: 'motion', url });
+        if (res && res.id) mySubIdMotion = res.id;
+      }
+    } else {
+      if (mySubIdTemp) {
+        await apiRequest(`/api/webhooks/${DEVICE_ID}/${encodeURIComponent(mySubIdTemp)}`, 'PATCH', { url });
+      } else {
+        const res = await apiRequest(`/api/webhooks/${DEVICE_ID}`, 'POST', { event: 'temperature', url });
+        if (res && res.id) mySubIdTemp = res.id;
+      }
+    }
+  } catch (err) {
+    console.error('saveMySubscription error', err);
+    alert('Failed to save your URL: ' + (err.message || err));
+  }
+}
+
+const debouncedSaveMotion = debounce(()=> saveMySubscription('motion', inputMotionUrl.value.trim()), 700);
+const debouncedSaveTemp   = debounce(()=> saveMySubscription('temperature', inputTempUrl.value.trim()), 700);
+
+// wire input events to debounced saves
+inputMotionUrl.addEventListener('input', () => debouncedSaveMotion());
+inputTempUrl.addEventListener('input', () => debouncedSaveTemp());
+
+// ----------------- keep LED control logic intact (RTDB) -----------------
 function updateLightButton(val) {
   lightValue = val;
   btnLight.disabled = false;
@@ -246,7 +365,6 @@ function updateLightButton(val) {
       break;
   }
 }
-
 const ledRef = ref(rtdb, LED_CONTROL_PATH);
 onValue(ledRef, (snapshot) => {
   const val = snapshot.val();
@@ -255,7 +373,6 @@ onValue(ledRef, (snapshot) => {
     cooldown = false;
   }
 });
-
 btnLight.addEventListener('click', async () => {
   if (cooldown) return;
   btnLight.disabled = true;
@@ -284,29 +401,20 @@ btnLight.addEventListener('click', async () => {
     cooldown = false;
   }
 });
+// ----------------------------------------------------------------------
 
-const URL_MOTION_PATH = `devices/${DEVICE_ID}/control/url_motion`;
-const URL_TEMP_PATH = `devices/${DEVICE_ID}/control/url_temp`;
-const motionUrlRef = ref(rtdb, URL_MOTION_PATH);
-const tempUrlRef = ref(rtdb, URL_TEMP_PATH);
-onValue(motionUrlRef, (snapshot) => {
-  inputMotionUrl.value = snapshot.val() || '';
-});
-onValue(tempUrlRef, (snapshot) => {
-  inputTempUrl.value = snapshot.val() || '';
-});
-let motionUrlTimeout, tempUrlTimeout;
-inputMotionUrl.addEventListener('input', () => {
-  clearTimeout(motionUrlTimeout);
-  motionUrlTimeout = setTimeout(() => {
-    set(motionUrlRef, inputMotionUrl.value);
-  }, 500);
-});
-inputTempUrl.addEventListener('input', () => {
-  clearTimeout(tempUrlTimeout);
-  tempUrlTimeout = setTimeout(() => {
-    set(tempUrlRef, inputTempUrl.value);
-  }, 500);
+// load user subscriptions when signed in (or clear when signed out)
+auth.onAuthStateChanged(user => {
+  if (user) {
+    setTimeout(() => {
+      loadMySubscriptions();
+    }, 200);
+  } else {
+    inputMotionUrl.value = '';
+    inputTempUrl.value = '';
+    mySubIdMotion = null;
+    mySubIdTemp = null;
+  }
 });
 </script>
 
