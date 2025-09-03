@@ -49,7 +49,14 @@ volatile int remoteLedState = 2;
 unsigned long lastLedFetchMs = 0;
 const unsigned long ledPollIntervalMs = 1000; // poll every 1s
 
-// sensor data queue (existing)
+// remote reboot control
+volatile int remoteRebootState = 0;               // 0 = no-reboot requested, 1 = reboot requested
+unsigned long lastRebootFetchMs = 0;
+const unsigned long rebootPollIntervalMs = 1000; // polling interval (can be same as ledPollIntervalMs)
+const unsigned long rebootSoftWaitMs = 5000;     // soft wait before reboot (ms) — adjust as needed
+const int rebootPutMaxAttempts = 5;               // attempts to PUT 0 back before giving up for this cycle
+
+// sensor data queue
 typedef struct {
   int ldr;
   bool motion;
@@ -61,7 +68,7 @@ typedef struct {
 
 QueueHandle_t sensorQueue = nullptr;
 
-// --- Notify config + immediate notify queue/task
+// --- Notify config + immediate notify queue/task ---
 typedef struct {
   String option;           // "none", "hass", "all"
   String motion_url;       // URL to call for motion
@@ -136,7 +143,7 @@ void setup() {
   if (!notifyQueue) {
     Serial.println("Failed to create notify queue!");
   } else {
-    // Notify task pinned to core 0 (immediate webhook caller)
+    // Notify task pinned to core 0
     xTaskCreatePinnedToCore(notifyTask, "notifyTask", 12288, NULL, 2, NULL, 0);
   }
 
@@ -312,9 +319,9 @@ bool enqueueSensorData(int ldr, bool motion, float hum, float temp) {
 
 // Notify task: processes NotifyEvents immediately and calls webhook URLs
 void notifyTask(void* pvParameters) {
-  WiFiClientSecure *client = new WiFiClientSecure();
-  client->setInsecure();
-  HTTPClient https;
+  WiFiClient *client = new WiFiClient();
+  HTTPClient http;
+
 
   for (;;) {
     NotifyEvent ev;
@@ -356,20 +363,21 @@ void notifyTask(void* pvParameters) {
       Serial.println(targetUrl);
       Serial.println(payload);
 
-      if (https.begin(*client, targetUrl)) {
-        https.addHeader("Content-Type", "application/json");
-        int httpCode = https.POST(String(payload));
-        if (httpCode > 0) {
-          Serial.printf("[notifyTask] HTTP %d\n", httpCode);
-          String resp = https.getString();
-          Serial.println(resp);
-        } else {
-          Serial.printf("[notifyTask] POST failed: %s\n", https.errorToString(httpCode).c_str());
-        }
-        https.end();
-      } else {
-        Serial.println("[notifyTask] begin failed (notify)");
-      }
+  if (http.begin(*client, targetUrl)) {
+    http.addHeader("Content-Type", "application/json");
+    int httpCode = http.POST(String(payload));
+    if (httpCode > 0) {
+      Serial.printf("[notifyTask] HTTP %d\n", httpCode);
+      String resp = http.getString();
+      Serial.println(resp);
+    } else {
+      Serial.printf("[notifyTask] POST failed: %s\n", http.errorToString(httpCode).c_str());
+    }
+    http.end();
+  } else {
+    Serial.println("[notifyTask] begin failed (notify)");
+  }
+
 
       vTaskDelay(10 / portTICK_PERIOD_MS);
     }
@@ -379,7 +387,7 @@ void notifyTask(void* pvParameters) {
   vTaskDelete(NULL);
 }
 
-// Firebase task runs separately (posting sensors + periodic notify fetch)
+// Firebase task runs separately
 void firebaseTask(void* pvParameters) {
   WiFiClientSecure *client = new WiFiClientSecure();
   client->setInsecure();
@@ -539,6 +547,104 @@ void firebaseTask(void* pvParameters) {
         https.end();
       } else {
         Serial.println("[FirebaseTask] begin failed (GET led)");
+      }
+    }
+
+    // Periodically fetch remote REBOOT control value from Firebase
+    if (tNow - lastRebootFetchMs >= rebootPollIntervalMs) {
+      lastRebootFetchMs = tNow;
+
+      String rebootUrl = String(FIREBASE_DATABASE_URL);
+      if (!rebootUrl.endsWith("/")) rebootUrl += "/";
+      rebootUrl += "devices/";
+      rebootUrl += DEVICE_ID;
+      rebootUrl += "/control/reboot.json"; // <-- reboot path
+
+      Serial.print("[FirebaseTask] GET remote reboot state ");
+      Serial.println(rebootUrl);
+
+      if (https.begin(*client, rebootUrl)) {
+        int httpCode = https.GET();
+        if (httpCode == HTTP_CODE_OK) {
+          String body = https.getString();
+          body.trim();
+          Serial.print("[FirebaseTask] reboot body: ");
+          Serial.println(body);
+
+          if (body == "1") {
+            // request reboot
+            remoteRebootState = 1;
+          } else if (body == "0") {
+            remoteRebootState = 0;
+          } else if (body == "null" || body.length() == 0) {
+            remoteRebootState = 0;
+          } else {
+            // try parse number
+            StaticJsonDocument<16> doc;
+            DeserializationError err = deserializeJson(doc, body);
+            if (!err) {
+              int v = doc.as<int>();
+              remoteRebootState = (v == 1) ? 1 : 0;
+            } else {
+              remoteRebootState = 0;
+            }
+          }
+        } else {
+          Serial.printf("[FirebaseTask] GET reboot failed: %d\n", httpCode);
+        }
+        https.end();
+      } else {
+        Serial.println("[FirebaseTask] begin failed (GET reboot)");
+      }
+    }
+
+    // Handle reboot request (only when remoteRebootState == 1)
+    if (remoteRebootState == 1) {
+      Serial.println("[FirebaseTask] Reboot requested. Soft wait then attempt to set reboot=0 before restarting.");
+
+      // Soft wait to allow UI feedback, etc.
+      vTaskDelay(rebootSoftWaitMs / portTICK_PERIOD_MS);
+
+      // Attempt to PUT 0 back to the reboot path; only restart after a successful PUT (HTTP 2xx)
+      String rebootUrlPut = String(FIREBASE_DATABASE_URL);
+      if (!rebootUrlPut.endsWith("/")) rebootUrlPut += "/";
+      rebootUrlPut += "devices/";
+      rebootUrlPut += DEVICE_ID;
+      rebootUrlPut += "/control/reboot.json";
+
+      bool putSuccess = false;
+      for (int attempt = 0; attempt < rebootPutMaxAttempts && !putSuccess; ++attempt) {
+        Serial.printf("[FirebaseTask] Attempting to PUT 0 -> %s (attempt %d)\n", rebootUrlPut.c_str(), attempt+1);
+        if (https.begin(*client, rebootUrlPut)) {
+          https.addHeader("Content-Type", "application/json");
+          // Send raw 0 (a numeric JSON value). Firebase RTDB will set that path to 0.
+          int putCode = https.PUT(String("0"));
+          if (putCode > 0 && putCode >= 200 && putCode < 300) {
+            Serial.printf("[FirebaseTask] PUT success HTTP %d\n", putCode);
+            putSuccess = true;
+          } else {
+            Serial.printf("[FirebaseTask] PUT failed: code=%d error=%s\n", putCode, https.errorToString(putCode).c_str());
+          }
+          https.end();
+        } else {
+          Serial.println("[FirebaseTask] begin failed (PUT reboot)");
+        }
+
+        if (!putSuccess) {
+          // small delay before retry
+          vTaskDelay(1000 / portTICK_PERIOD_MS);
+        }
+      }
+
+      if (putSuccess) {
+        Serial.println("[FirebaseTask] Reboot flag cleared on server — restarting now.");
+        // Optionally short delay to flush serial
+        delay(200);
+        ESP.restart(); // soft restart
+      } else {
+        Serial.println("[FirebaseTask] Failed to clear reboot flag on server. Will retry next polling cycle.");
+        // Don't restart — keep remoteRebootState==1 so next cycle tries again.
+        // Optionally you may want to back off; current code will retry on next poll.
       }
     }
 
