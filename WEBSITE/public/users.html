@@ -14,6 +14,35 @@
     .sidebar-logo-img { width: 60px; height: auto; margin: 15px 0 0 0; }
     .sidebar-brand-text { font-size: 12px; margin-left: 0; margin-right: 18px; }
     .profile-img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+
+    /* Loading overlay + skeleton row styles (appended) */
+    .users-loading-overlay {
+      position: absolute;
+      inset: 0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background: rgba(255,255,255,0.6);
+      z-index: 999;
+    }
+    .users-spinner {
+      width:48px;
+      height:48px;
+      border:4px solid rgba(0,0,0,0.1);
+      border-top-color: rgba(0,0,0,0.6);
+      border-radius:50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Simple table skeleton row */
+    .users-skeleton-row td {
+      background: linear-gradient(90deg, #f3f3f3 25%, #ececec 50%, #f3f3f3 75%);
+      background-size: 200% 100%;
+      animation: skeleton-loading 1.2s linear infinite;
+      height: 48px;
+    }
+    @keyframes skeleton-loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
   </style>
 </head>
 <body id="page-top">
@@ -54,7 +83,7 @@
       </a>
     </li>
 
-	  
+      
       <hr class="sidebar-divider d-none d-md-block" />
       <div class="text-center d-none d-md-inline">
         <button class="rounded-circle border-0" id="sidebarToggle"></button>
@@ -217,29 +246,142 @@
   $(document).ready(function () {
     const table = $('#usersTable').DataTable({ columnDefs: [{ orderable: false, targets: 2 }] });
 
-    async function loadUsers() {
+    // ----- START: improved loadUsers with cache + skeleton -----
+    const USERS_CACHE_KEY = 'users_cache_v1';
+    const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+    // Helper: render rows into DataTable
+    function renderRowsToTable(users) {
+      const rows = [];
+      users.forEach((user) => {
+        const profileImg = `<img src="${user.avatarUrl || 'img/undraw_profile.svg'}" alt="${user.username || ''}" class="profile-img" loading="lazy" />`;
+        const usernameCell = `<span class="text-primary" style="cursor:pointer;" data-id="${user.id}">${user.username || ''}</span>`;
+        const deleteBtn = `<button class="btn btn-danger btn-sm delete-btn" data-id="${user.id}">Delete</button>`;
+        rows.push([profileImg, usernameCell, deleteBtn]);
+      });
+
       table.clear();
-      const usersCol = collection(db, 'users');
-      try {
-        const snapshot = await getDocs(usersCol);
-
-        const rows = [];
-        snapshot.forEach((docSnap) => {
-          const user = docSnap.data();
-          const id = docSnap.id;
-          const profileImg = `<img src="${user.avatarUrl || 'img/undraw_profile.svg'}" alt="${user.username || ''}" class="profile-img" />`;
-          const usernameCell = `<span class="text-primary" style="cursor:pointer;" data-id="${id}">${user.username || ''}</span>`;
-          const deleteBtn = `<button class="btn btn-danger btn-sm delete-btn" data-id="${id}">Delete</button>`;
-          rows.push([profileImg, usernameCell, deleteBtn]);
-        });
-
+      if (rows.length) {
         table.rows.add(rows).draw();
-      } catch (error) {
-        console.error('Error loading users from Firestore:', error);
-        alert('Failed to load users. See console for details.');
+      } else {
+        // keep table empty but redraw to remove skeletons
+        table.draw();
       }
     }
+
+    // Small UI helpers
+    function showLoadingOverlay() {
+      // avoid duplicate
+      if ($('.users-loading-overlay').length) return;
+      const overlay = $(`
+        <div class="users-loading-overlay">
+          <div class="users-spinner" role="status" aria-hidden="true"></div>
+        </div>
+      `);
+      // place overlay above the table wrapper
+      $('.table-responsive').css('position', 'relative').append(overlay);
+    }
+    function hideLoadingOverlay() {
+      $('.users-loading-overlay').remove();
+    }
+    function showSkeletonRows(count = 5) {
+      table.clear();
+      const skeletons = [];
+      for (let i = 0; i < count; i++) {
+        skeletons.push([`<div style="width:48px;height:48px;border-radius:50%;background:#eee;"></div>`,
+                        `<div style="width:150px;height:20px;background:#eee;"></div>`,
+                        `<div style="width:100px;height:30px;background:#eee;"></div>`]);
+      }
+      // Use raw html cells but add a row class to animate with CSS
+      table.rows.add(skeletons).draw();
+      // Add skeleton style class to table body rows
+      $('#usersTable tbody tr').addClass('users-skeleton-row');
+    }
+
+    // Save cache
+    function saveUsersCache(users) {
+      try {
+        const toSave = { ts: Date.now(), users };
+        localStorage.setItem(USERS_CACHE_KEY, JSON.stringify(toSave));
+      } catch (err) {
+        // ignore localStorage errors
+        console.warn('Could not save users cache:', err);
+      }
+    }
+
+    // Read cache
+    function readUsersCache() {
+      try {
+        const raw = localStorage.getItem(USERS_CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return parsed;
+      } catch (err) {
+        return null;
+      }
+    }
+
+    // Fetch fresh from Firestore, update table and cache
+    async function fetchFreshUsersAndUpdate() {
+      try {
+        const usersCol = collection(db, 'users');
+        const snapshot = await getDocs(usersCol);
+        const users = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        // update UI only if data changed length or timestamp — simple equality check
+        renderRowsToTable(users);
+        saveUsersCache(users);
+      } catch (err) {
+        console.error('Error fetching fresh users:', err);
+      } finally {
+        hideLoadingOverlay();
+        // remove skeleton class if present
+        $('#usersTable tbody tr').removeClass('users-skeleton-row');
+      }
+    }
+
+    async function loadUsers() {
+      // 1) Try cache first (stale-while-revalidate)
+      const cache = readUsersCache();
+      if (cache && (Date.now() - cache.ts) < CACHE_TTL && Array.isArray(cache.users)) {
+        // render cached immediately
+        renderRowsToTable(cache.users);
+        // background refresh but do show a small overlay so user knows updating
+        showLoadingOverlay();
+        fetchFreshUsersAndUpdate();
+        return;
+      }
+
+      // 2) No valid cache -> show skeleton + overlay while fetching
+      showSkeletonRows(6);
+      showLoadingOverlay();
+
+      try {
+        const usersCol = collection(db, 'users');
+        const snapshot = await getDocs(usersCol);
+        const users = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderRowsToTable(users);
+        saveUsersCache(users);
+      } catch (err) {
+        console.error('Error loading users from Firestore:', err);
+        // if we have stale cache, show it as fallback
+        if (cache && Array.isArray(cache.users)) {
+          renderRowsToTable(cache.users);
+          alert('Showing cached users (network error).');
+        } else {
+          // remove skeleton and show message row
+          table.clear();
+          table.row.add([ '', 'No users available (and no cache).', '' ]).draw();
+          alert('Failed to load users. See console for details.');
+        }
+      } finally {
+        hideLoadingOverlay();
+        $('#usersTable tbody tr').removeClass('users-skeleton-row');
+      }
+    }
+
+    // Call the improved loader
     loadUsers();
+    // ----- END: improved loadUsers with cache + skeleton -----
 
     $('#formAddUser').submit(async function (e) {
       e.preventDefault();
@@ -430,33 +572,15 @@ $('#usersTable tbody').on('click', 'button.delete-btn', async function () {
       }
     }
 
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    // Prefer the username stored in Firestore users collection; fallback to displayName then email prefix.
-    let displayName = 'User';
-    try {
-      const userDocRef = doc(db, 'users', user.uid);
-      const userSnap = await getDoc(userDocRef);
-      if (userSnap.exists() && userSnap.data().username) {
-        displayName = userSnap.data().username;
-      } else if (user.displayName) {
-        displayName = user.displayName;
-      } else if (user.email) {
-        displayName = user.email.split('@')[0];
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        $('#topbarUsername').text(user.displayName || (user.email ? user.email.split('@')[0] : 'User'));
+        $('#topbarAvatar').attr('src', user.photoURL || 'img/undraw_profile.svg');
+      } else {
+        $('#topbarUsername').text('Guest');
+        $('#topbarAvatar').attr('src', 'img/undraw_profile.svg');
       }
-    } catch (err) {
-      console.warn('Failed to load Firestore user doc for topbar username:', err);
-      displayName = user.displayName || (user.email ? user.email.split('@')[0] : 'User');
-    }
-
-    $('#topbarUsername').text(displayName);
-    $('#topbarAvatar').attr('src', user.photoURL || 'img/undraw_profile.svg');
-  } else {
-    $('#topbarUsername').text('Guest');
-    $('#topbarAvatar').attr('src', 'img/undraw_profile.svg');
-  }
-});
-
+    });
   });
 </script>
 
