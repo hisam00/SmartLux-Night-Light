@@ -230,7 +230,7 @@ void loop() {
         greenPWM = brightness;
       }
     } else {
-      greenPWM = brightness;
+      //greenPWM = brightness;
     }
   } else if (ledsActive && (remoteLedState == 1)) {
     redPWM = brightness;
