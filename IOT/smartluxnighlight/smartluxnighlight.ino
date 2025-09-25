@@ -47,7 +47,7 @@ bool ledsActive = false;
 // 2 => automatic (no override), 0 => forced OFF, 1 => forced ON
 volatile int remoteLedState = 2;
 unsigned long lastLedFetchMs = 0;
-const unsigned long ledPollIntervalMs = 1000; // poll every 1s
+const unsigned long ledPollIntervalMs = 60000; // left large as fallback (we rely on streaming)
 
 // remote reboot control
 volatile int remoteRebootState = 0;               // 0 = no-reboot requested, 1 = reboot requested
@@ -102,6 +102,9 @@ bool enqueueSensorData(int ldr, bool motion, float hum, float temp);
 void firebaseTask(void* pvParameters);
 void notifyTask(void* pvParameters);
 void fetchNotifyConfigOnce(); // helper to fetch notify config immediately
+
+// New: controlTask (Server-Sent Events streaming listener)
+void controlTask(void* pvParameters);
 
 // ISR for motion (RISING)
 void IRAM_ATTR motionISR() {
@@ -164,6 +167,10 @@ void setup() {
 
   // Fetch notify config once right away so notifyTask has latest settings
   fetchNotifyConfigOnce();
+
+  // Start the control streaming task (higher priority so it reacts fast).
+  // Pin to core 1 and give it priority 3 (higher than firebaseTask).
+  xTaskCreatePinnedToCore(controlTask, "controlTask", 8192, NULL, 3, NULL, 1);
 }
 
 unsigned long lastDhtRead = 0;
@@ -363,20 +370,20 @@ void notifyTask(void* pvParameters) {
       Serial.println(targetUrl);
       Serial.println(payload);
 
-  if (http.begin(*client, targetUrl)) {
-    http.addHeader("Content-Type", "application/json");
-    int httpCode = http.POST(String(payload));
-    if (httpCode > 0) {
-      Serial.printf("[notifyTask] HTTP %d\n", httpCode);
-      String resp = http.getString();
-      Serial.println(resp);
-    } else {
-      Serial.printf("[notifyTask] POST failed: %s\n", http.errorToString(httpCode).c_str());
-    }
-    http.end();
-  } else {
-    Serial.println("[notifyTask] begin failed (notify)");
-  }
+      if (http.begin(*client, targetUrl)) {
+        http.addHeader("Content-Type", "application/json");
+        int httpCode = http.POST(String(payload));
+        if (httpCode > 0) {
+          Serial.printf("[notifyTask] HTTP %d\n", httpCode);
+          String resp = http.getString();
+          Serial.println(resp);
+        } else {
+          Serial.printf("[notifyTask] POST failed: %s\n", http.errorToString(httpCode).c_str());
+        }
+        http.end();
+      } else {
+        Serial.println("[notifyTask] begin failed (notify)");
+      }
 
 
       vTaskDelay(10 / portTICK_PERIOD_MS);
@@ -387,7 +394,8 @@ void notifyTask(void* pvParameters) {
   vTaskDelete(NULL);
 }
 
-// Firebase task runs separately
+// Firebase task runs separately (sensor posting, notify config, reboot handling)
+// NOTE: This version NO LONGER polls /control/led.json repeatedly — controlTask handles that via streaming.
 void firebaseTask(void* pvParameters) {
   WiFiClientSecure *client = new WiFiClientSecure();
   client->setInsecure();
@@ -395,8 +403,8 @@ void firebaseTask(void* pvParameters) {
 
   for (;;) {
     SensorData data;
-    // wait for sensor data, but timeout so we can periodically refresh notify config
-    if (xQueueReceive(sensorQueue, &data, 2000 / portTICK_PERIOD_MS) == pdTRUE) {
+    // Drain sensor queue non-blocking (so this task doesn't block periodic checks)
+    while (sensorQueue && xQueueReceive(sensorQueue, &data, 0) == pdTRUE) {
       // Post sensor data
       String url = String(FIREBASE_DATABASE_URL);
       if (!url.endsWith("/")) url += "/";
@@ -499,57 +507,6 @@ void firebaseTask(void* pvParameters) {
       }
     }
 
-    // Periodically fetch remote LED control value from Firebase
-    if (tNow - lastLedFetchMs >= ledPollIntervalMs) {
-      lastLedFetchMs = tNow;
-
-      String ledUrl = String(FIREBASE_DATABASE_URL);
-      if (!ledUrl.endsWith("/")) ledUrl += "/";
-      ledUrl += "devices/";
-      ledUrl += DEVICE_ID;
-      ledUrl += "/control/led.json"; // <-- path expected by website
-
-      Serial.print("[FirebaseTask] GET remote led state ");
-      Serial.println(ledUrl);
-
-      if (https.begin(*client, ledUrl)) {
-        int httpCode = https.GET();
-        if (httpCode == HTTP_CODE_OK) {
-          String body = https.getString();
-          body.trim();
-          Serial.print("[FirebaseTask] led body: ");
-          Serial.println(body);
-
-          // Possible responses: "0", "1", null ("null")
-          if (body == "0") {
-            remoteLedState = 0;
-          } else if (body == "1") {
-            remoteLedState = 1;
-          } else if (body == "null" || body.length() == 0) {
-            remoteLedState = 2; // clear override
-          } else {
-            // try to parse as JSON number
-            StaticJsonDocument<16> doc;
-            DeserializationError err = deserializeJson(doc, body);
-            if (!err) {
-              int v = doc.as<int>();
-              if (v == 0) remoteLedState = 0;
-              else if (v == 1) remoteLedState = 1;
-              else remoteLedState = 2;
-            } else {
-              remoteLedState = 2;
-            }
-          }
-
-        } else {
-          Serial.printf("[FirebaseTask] GET led failed: %d\n", httpCode);
-        }
-        https.end();
-      } else {
-        Serial.println("[FirebaseTask] begin failed (GET led)");
-      }
-    }
-
     // Periodically fetch remote REBOOT control value from Firebase
     if (tNow - lastRebootFetchMs >= rebootPollIntervalMs) {
       lastRebootFetchMs = tNow;
@@ -644,7 +601,6 @@ void firebaseTask(void* pvParameters) {
       } else {
         Serial.println("[FirebaseTask] Failed to clear reboot flag on server. Will retry next polling cycle.");
         // Don't restart — keep remoteRebootState==1 so next cycle tries again.
-        // Optionally you may want to back off; current code will retry on next poll.
       }
     }
 
@@ -716,4 +672,214 @@ void connectWiFi() {
   Serial.println();
   Serial.print("WiFi connected. IP: ");
   Serial.println(WiFi.localIP());
+}
+
+// ---------------------------
+// controlTask: Firebase RTDB SSE streaming listener for /devices/<ID>/control.json
+// ---------------------------
+void controlTask(void* pvParameters) {
+  WiFiClientSecure *client = new WiFiClientSecure();
+  client->setInsecure();
+
+  // Build host + base path from FIREBASE_DATABASE_URL
+  String url = String(FIREBASE_DATABASE_URL);
+  // remove scheme
+  if (url.startsWith("https://")) url = url.substring(8);
+  else if (url.startsWith("http://"))  url = url.substring(7);
+
+  int slash = url.indexOf('/');
+  String host = (slash == -1) ? url : url.substring(0, slash);
+  String basePath = (slash == -1) ? String("") : url.substring(slash); // begins with '/'
+
+  // stream the whole control node (so we see led AND reboot, etc)
+  String streamPath = basePath + "/devices/" + DEVICE_ID + "/control.json";
+
+  const unsigned long reconnectDelayMs = 500;
+  const unsigned long socketIdleTimeoutMs = 30000; // reconnect if no data for a while
+
+  for (;;) {
+    // Wait for network
+    while (WiFi.status() != WL_CONNECTED) vTaskDelay(500 / portTICK_PERIOD_MS);
+
+    Serial.printf("[controlTask] connecting to %s ...\n", host.c_str());
+    if (!client->connect(host.c_str(), 443)) {
+      Serial.println("[controlTask] connect failed, retrying...");
+      vTaskDelay(reconnectDelayMs / portTICK_PERIOD_MS);
+      continue;
+    }
+
+    // Send streaming GET request (SSE)
+    String req = String("GET ") + streamPath + " HTTP/1.1\r\n"
+                 "Host: " + host + "\r\n"
+                 "Accept: text/event-stream\r\n"
+                 "Connection: keep-alive\r\n\r\n";
+    client->print(req);
+
+    unsigned long lastRecv = millis();
+    String line;
+    String dataBuf;
+
+    // Read and discard HTTP headers (simple)
+    while (client->connected()) {
+      line = client->readStringUntil('\n');
+      line.trim();
+      if (line.length() == 0) break; // headers done
+      if (millis() - lastRecv > 5000) break; // safety timeout reading headers
+    }
+
+    Serial.println("[controlTask] stream established, listening...");
+
+    // Read SSE stream
+    while (client->connected()) {
+      if (client->available()) {
+        lastRecv = millis();
+        line = client->readStringUntil('\n');
+        line.trim();
+        if (line.length() == 0) {
+          // event separator: process any collected data
+          if (dataBuf.length() > 0) {
+            // dataBuf usually contains a JSON object for RTDB like:
+            // {"path":"/control","data":{"led":1,"reboot":0}}
+            StaticJsonDocument<768> doc;
+            DeserializationError err = deserializeJson(doc, dataBuf);
+            if (!err) {
+              if (doc.containsKey("data")) {
+                JsonVariant data = doc["data"];
+
+                // If 'data' is an object like {"led":1,"reboot":0}
+                if (data.is<JsonObject>()) {
+                  JsonObject obj = data.as<JsonObject>();
+                  // LED
+                  if (obj.containsKey("led")) {
+                    JsonVariant v = obj["led"];
+                    if (v.is<int>()) {
+                      int ledv = v.as<int>();
+                      if (ledv == 0) remoteLedState = 0;
+                      else if (ledv == 1) remoteLedState = 1;
+                      else remoteLedState = 2;
+                      lastLedFetchMs = millis();
+                      Serial.printf("[controlTask] streamed led=%d\n", remoteLedState);
+                    } else if (v.isNull()) {
+                      remoteLedState = 2;
+                      lastLedFetchMs = millis();
+                      Serial.println("[controlTask] streamed led=null -> cleared override");
+                    } else {
+                      // try string coercion
+                      String s; serializeJson(v, s); s.trim();
+                      if (s == "0") remoteLedState = 0;
+                      else if (s == "1") remoteLedState = 1;
+                      else remoteLedState = 2;
+                      lastLedFetchMs = millis();
+                      Serial.printf("[controlTask] streamed led(str)=%d\n", remoteLedState);
+                    }
+                  }
+
+                  // Reboot
+                  if (obj.containsKey("reboot")) {
+                    JsonVariant r = obj["reboot"];
+                    if (r.is<int>()) {
+                      remoteRebootState = (r.as<int>() == 1) ? 1 : 0;
+                      lastRebootFetchMs = millis();
+                      Serial.printf("[controlTask] streamed reboot=%d\n", remoteRebootState);
+                    } else if (r.isNull()) {
+                      remoteRebootState = 0;
+                      lastRebootFetchMs = millis();
+                      Serial.println("[controlTask] streamed reboot=null -> cleared");
+                    } else {
+                      String s; serializeJson(r, s); s.trim();
+                      if (s == "1") remoteRebootState = 1;
+                      else remoteRebootState = 0;
+                      lastRebootFetchMs = millis();
+                      Serial.printf("[controlTask] streamed reboot(str)=%d\n", remoteRebootState);
+                    }
+                  }
+                } else {
+                  // 'data' might be a primitive (e.g., if you previously streamed only 'led' node)
+                  if (data.is<int>()) {
+                    int v = data.as<int>();
+                    // treat it as led if it's 0/1
+                    if (v == 0) remoteLedState = 0;
+                    else if (v == 1) remoteLedState = 1;
+                    else remoteLedState = 2;
+                    lastLedFetchMs = millis();
+                    Serial.printf("[controlTask] streamed primitive led=%d\n", remoteLedState);
+                  } else if (data.isNull()) {
+                    remoteLedState = 2;
+                    lastLedFetchMs = millis();
+                    Serial.println("[controlTask] streamed primitive null -> cleared led");
+                  } else {
+                    String s; serializeJson(data, s); s.trim();
+                    if (s == "0") remoteLedState = 0;
+                    else if (s == "1") remoteLedState = 1;
+                    else if (s == "null") remoteLedState = 2;
+                    lastLedFetchMs = millis();
+                    Serial.printf("[controlTask] streamed primitive str led=%d\n", remoteLedState);
+                  }
+                }
+              } else {
+                // Unexpected: treat entire payload as raw value
+                String s = dataBuf;
+                s.trim();
+                if (s == "0") remoteLedState = 0;
+                else if (s == "1") remoteLedState = 1;
+                else if (s == "null") remoteLedState = 2;
+                lastLedFetchMs = millis();
+                Serial.printf("[controlTask] streamed raw fallback led=%d\n", remoteLedState);
+              }
+            } else {
+              // parse failed - fallback to checking for simple tokens
+              String s = dataBuf;
+              s.trim();
+              if (s.indexOf("\"led\"") != -1) {
+                // crude parse: try to find "led":N
+                int idx = s.indexOf("\"led\"");
+                int colon = s.indexOf(':', idx);
+                if (colon > 0) {
+                  String val = "";
+                  for (int i = colon+1; i < (int)s.length(); ++i) {
+                    char c = s[i];
+                    if ((c >= '0' && c <= '9') || c == '-' ) val += c;
+                    else if (val.length()>0) break;
+                  }
+                  if (val.length()>0) {
+                    int lv = val.toInt();
+                    if (lv == 0) remoteLedState = 0;
+                    else if (lv == 1) remoteLedState = 1;
+                    else remoteLedState = 2;
+                    lastLedFetchMs = millis();
+                    Serial.printf("[controlTask] crude parsed led=%d\n", remoteLedState);
+                  }
+                }
+              }
+            }
+            dataBuf = "";
+          }
+        } else if (line.startsWith("data:")) {
+          // accumulate 'data:' lines into buffer (SSE data may be multi-line)
+          String payload = line.substring(5);
+          payload.trim();
+          if (payload.length() > 0) {
+            if (dataBuf.length() > 0) dataBuf += "\n";
+            dataBuf += payload;
+          }
+        } else {
+          // ignore other SSE fields like "event:" or ":" keepalive
+        }
+      } else {
+        // no data available right now
+        if (millis() - lastRecv > socketIdleTimeoutMs) {
+          Serial.println("[controlTask] stream idle timeout, reconnecting...");
+          break;
+        }
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+      }
+    } // while connected
+
+    // cleanup & reconnect
+    client->stop();
+    vTaskDelay(reconnectDelayMs / portTICK_PERIOD_MS);
+  } // for(;;)
+
+  delete client;
+  vTaskDelete(NULL);
 }
