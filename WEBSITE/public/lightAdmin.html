@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta name="description" content="" />
+    <meta name="author" content="" />
+    <title>SmartLux Night Light - Admin Dashboard</title>
+    <!-- Custom fonts for this template-->
+    <link href="vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css" />
+    <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i"
+        rel="stylesheet" />
+    <!-- Custom styles for this template-->
+    <link href="css/sb-admin-2.min.css" rel="stylesheet" />
+	
+	<style>
+  /* Override sidebar background with warm sunset gradient */
+  #accordionSidebar.bg-gradient-primary {
+    background: #8963BA !important;
+  }
+
+.sidebar-logo-img {
+    width: 60px;
+    height: auto;
+    margin-right: 0px; /* Decrease to bring text closer */
+	margin-top: 15px;
+	margin-left: 0px;
+	
+}
+
+.sidebar-brand-text {
+    font-size: 12px; /* Smaller text */
+    margin-left: 0;  /* Ensure no left margin */
+	margin-right: 18px;
+}
+
+/* Legend dot + spacing for users legend */
+#usersLegend .legend-item {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 12px;
+  font-size: 0.85rem;
+  color: #6b6b6b;
+}
+#usersLegend .legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 8px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.04) inset;
+}
+#usersLegend .legend-count {
+  margin-left: 6px;
+  color: #333;
+  font-weight: 600;
+}
+
+
+</style>
+	
+	
+</head>
+<body id="page-top">
+    <!-- Page Wrapper -->
+    <div id="wrapper">
+        <!-- Sidebar -->
+        <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
+            
+			<!-- Sidebar - Brand -->
+			
+           <a class="sidebar-brand d-flex align-items-center justify-content-center" href="dashboardadmin.html">
+    <img src="img/LOGONT.png" alt="Logo" class="sidebar-logo-img" />
+    <div class="sidebar-brand-text" style="font-size:15px;">SMARTLUX NIGHT LIGHT</div>
+</a>
+
+            
+			<!-- Divider -->
+            <hr class="sidebar-divider my-0" />
+            <!-- Nav Item - Dashboard -->
+            <li class="nav-item">
+                <a class="nav-link" href="dashboardadmin.html">
+                    <i class="fas fa-fw fa-tachometer-alt"></i>
+                    <span>Dashboard</span></a
+                >
+            </li>
+			
+			
+						
+			<hr class="sidebar-divider my-0" />
+			 <!-- Nav Item - Control -->
+			<li class="nav-item">
+				<a class="nav-link" href="temperatureAdmin.html">
+					<i class="fas fa-fw fa-solid fa-temperature-low"></i>
+					<span>Temperature</span>
+				</a>
+			</li>
+			<hr class="sidebar-divider my-0" />
+			 <!-- Nav Item - Control -->
+			<li class="nav-item">
+				<a class="nav-link" href="humidityAdmin.html">
+					<i class="fas fa-fw fa-solid fa-water"></i>
+					<span>Humidity</span>
+				</a>
+			</li>
+			<hr class="sidebar-divider my-0" />
+			 <!-- Nav Item - Control -->
+			<li class="nav-item">
+				<a class="nav-link" href="motionAdmin.html">
+					<i class="fas fa-fw fa-solid fa-running"></i>
+					<span>Motion</span>
+				</a>
+			</li>
+			<hr class="sidebar-divider my-0" />
+			 <!-- Nav Item - Control -->
+			<li class="nav-item active">
+				<a class="nav-link" href="lightAdmin.html">
+					<i class="fas fa-fw fa-solid fa-lightbulb"></i>
+					<span>Light</span>
+				</a>
+			</li>
+			
+			<!-- USER ACCESS CONTROL -->
+            <hr class="sidebar-divider my-0" />
+            <!-- Nav Item - Dashboard -->
+            <li class="nav-item">
+				<a class="nav-link" href="users.html">
+					<!-- <img src="img/iconUsers.png" alt="Users Icon" style="width:20px; height:20px; margin-right:8px;"> -->
+					<i class="fas fa-users"></i>
+					<span>Manage Users</span>
+				</a>
+			</li>
+			
+			
+			<hr class="sidebar-divider my-0" />
+    <!-- Nav Item - Control Admin -->
+    <li class="nav-item">
+      <a class="nav-link" href="controladmin.html">
+        <i class="fas fa-fw fa-cogs"></i>
+        <span>Light Control</span>
+      </a>
+    </li>
+
+            <!-- Divider -->
+            <hr class="sidebar-divider d-none d-md-block" />
+            <!-- Sidebar Toggler (Sidebar) -->
+            <div class="text-center d-none d-md-inline">
+                <button class="rounded-circle border-0" id="sidebarToggle"></button>
+            </div>
+        </ul>
+        <!-- End of Sidebar -->
+        <!-- Content Wrapper -->
+        <div id="content-wrapper" class="d-flex flex-column">
+            <!-- Main Content -->
+            <div id="content">
+                <!-- Topbar -->
+                <nav
+                    class="navbar navbar-expand navbar-light bg-white topbar mb-4 static-top shadow"
+                >
+                    <!-- Sidebar Toggle (Topbar) -->
+                    <button
+                        id="sidebarToggleTop"
+                        class="btn btn-link d-md-none rounded-circle mr-3"
+                    >
+                        <i class="fa fa-bars"></i>
+                    </button>
+
+                    <!-- Topbar Navbar -->
+                    <ul class="navbar-nav ml-auto">
+                        <!-- Nav Item - Search Dropdown (Visible Only XS) -->
+                        <li class="nav-item dropdown no-arrow d-sm-none">
+                            <a
+                                class="nav-link dropdown-toggle"
+                                href="#"
+                                id="searchDropdown"
+                                role="button"
+                                data-toggle="dropdown"
+                                aria-haspopup="true"
+                                aria-expanded="false"
+                                ><i class="fas fa-search fa-fw"></i
+                            ></a>
+                            <!-- Dropdown - Messages -->
+                            <div
+                                class="dropdown-menu dropdown-menu-right p-3 shadow animated--grow-in"
+                                aria-labelledby="searchDropdown"
+                            >
+                                <form class="form-inline mr-auto w-100 navbar-search">
+                                    <div class="input-group">
+                                        <input
+                                            type="text"
+                                            class="form-control bg-light border-0 small"
+                                            placeholder="Search for..."
+                                            aria-label="Search"
+                                            aria-describedby="basic-addon2"
+                                        />
+                                        <div class="input-group-append">
+                                            <button class="btn btn-primary" type="button">
+                                                <i class="fas fa-search fa-sm"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </li>
+                        <!-- Nav Item - Alerts (replaced inner content so JS can populate) -->
+                        
+
+                        <div class="topbar-divider d-none d-sm-block"></div>
+                        <!-- Nav Item - User Information -->
+                        <li class="nav-item dropdown no-arrow">
+						  <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-toggle="dropdown"
+							 aria-haspopup="true" aria-expanded="false">
+							<!-- give this span an id so we can update it -->
+							<span id="topbarUsername" class="mr-2 d-none d-lg-inline text-gray-600 small">First User</span>
+							<!-- give this img an id so we can update it -->
+							<img id="topbarAvatar" class="img-profile rounded-circle" src="img/undraw_profile.svg" />
+						  </a>
+                            <!-- Dropdown - User Information -->
+                            <div
+                                class="dropdown-menu dropdown-menu-right shadow animated--grow-in"
+                                aria-labelledby="userDropdown"
+                            >
+								<a class="dropdown-item" href="#" id="profileLink">
+								  <i class="fas fa-user fa-sm fa-fw mr-2 text-gray-400"></i>
+								  Profile
+								</a>
+
+
+
+                                <div class="dropdown-divider"></div>
+                                <a
+                                    class="dropdown-item"
+                                    href="#"
+                                    data-toggle="modal"
+                                    data-target="#logoutModal"
+                                >
+                                    <i
+                                        class="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-gray-400"
+                                    ></i>
+                                    Logout
+                                </a>
+                            </div>
+                        </li>
+                    </ul>
+                </nav>
+                <!-- End of Topbar -->
+                <!-- Begin Page Content -->
+                <div class="container-fluid">
+                    <!-- Page Heading -->
+                    <div
+                        class="d-sm-flex align-items-center justify-content-between mb-4"
+                    >
+                        <h1>Light</h1>
+                        
+                    </div>
+
+                    <!-- Scroll to Top Button-->
+                    <a class="scroll-to-top rounded" href="#page-top"
+                        ><i class="fas fa-angle-up"></i
+                    ></a>
+
+          <!-- Content Row -->
+          <div class="row">
+          <div class="col-xl-8 col-lg-7">
+            <div class="card shadow mb-4">
+              <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">Light</h6>
+              </div>
+              <div class="card-body">
+                <div class="chart-area">
+                  <canvas id="myLightChart"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+                      
+       <!-- Light Table -->
+        <div class="row">
+          <div class="col-xl-8 col-lg-7">
+            <div class="card shadow mb-4">
+              <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Light Readings Table</h6>
+              </div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-bordered" id="lightTable">
+                    <thead>
+                      <tr>
+                        <th>Timestamp</th>
+                        <th>Light (lx)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <!-- Table rows filled dynamically by JS -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+                    <!-- Logout Modal -->
+                    <div
+                        class="modal fade"
+                        id="logoutModal"
+                        tabindex="-1"
+                        role="dialog"
+                        aria-labelledby="exampleModalLabel"
+                        aria-hidden="true"
+                    >
+                        <div class="modal-dialog" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="exampleModalLabel">
+                                        Ready to Leave?
+                                    </h5>
+                                    <button
+                                        class="close"
+                                        type="button"
+                                        data-dismiss="modal"
+                                        aria-label="Close"
+                                    >
+                                        <span aria-hidden="true">×</span>
+                                    </button>
+                                </div>
+                                <div class="modal-body">
+                                    Select "Logout" below if you are ready to end your current
+                                    session.
+                                </div>
+                                <div class="modal-footer">
+                                    <button
+                                        class="btn btn-secondary"
+                                        type="button"
+                                        data-dismiss="modal"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <a class="btn btn-primary" href="login.html">Logout</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Bootstrap core JavaScript-->
+            <script src="vendor/jquery/jquery.min.js"></script>
+            <script src="vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+            <!-- Core plugin JavaScript-->
+            <script src="vendor/jquery-easing/jquery.easing.min.js"></script>
+            <!-- Custom scripts for all pages-->
+            <script src="js/sb-admin-2.min.js"></script>
+            <!-- Page level plugins -->
+            <script src="vendor/chart.js/Chart.min.js"></script>
+            <!-- Page level custom scripts -->
+<script type="module">
+  import { rtdb } from './firebase-config.js';
+  import { ref as dbRef, query, limitToLast, get, onValue } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js';
+
+  const DEVICE_ID = 'device01';
+  const HIST_LIMIT = 20;
+  const REF_PATH = `devices/${DEVICE_ID}/sensors`;
+  const REF = dbRef(rtdb, REF_PATH);
+
+  const ctxLight = document.getElementById('myLightChart').getContext('2d');
+  const chartLight = new Chart(ctxLight, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: 'Light',
+        data: [],
+        lineTension: 0.3,
+        backgroundColor: 'rgba(75,192,192,0.05)',
+        borderColor: 'rgba(75,192,192,1)',
+        pointRadius: 3,
+        pointHitRadius: 10
+      }]
+    },
+    options: {
+      maintainAspectRatio: false,
+      layout: { padding: { left: 10, right: 25, top: 25, bottom: 0 } },
+      scales: {
+        xAxes: [{
+          gridLines: { display: false }
+        }],
+        yAxes: [{
+          ticks: {
+            maxTicksLimit: 7,
+            padding: 10,
+            callback: function(value) {
+              return value + ' lx';
+            }
+          },
+          gridLines: {
+            color: 'rgb(234,236,244)',
+            zeroLineColor: 'rgb(234,236,244)',
+            drawBorder: false,
+            borderDash: [2],
+            zeroLineBorderDash: [2]
+          }
+        }]
+      },
+      legend: { display: false }
+    }
+  });
+
+  function sampleTimestampMs(s) {
+    if (!s) return Date.now();
+    if (s.ts_iso) {
+      const parsed = Date.parse(s.ts_iso);
+      if (!Number.isNaN(parsed)) return parsed;
+    }
+    if (s.timestamp_ms || s.timestamp_ms === 0) {
+      const v = Number(s.timestamp_ms);
+      return (v > 1e11) ? v : (v > 1e9 ? v : v * 1000);
+    }
+    if (s.timestamp || s.timestamp === 0) return Number(s.timestamp) * 1000;
+    return Date.now();
+  }
+
+  const tableBody = document.querySelector('#lightTable tbody');
+
+  function renderTable(labels, ldrs) {
+    tableBody.innerHTML = '';
+    for (let i = 0; i < labels.length; ++i) {
+      const row = document.createElement('tr');
+      const tsCell = document.createElement('td');
+      tsCell.textContent = labels[i];
+      const ldrCell = document.createElement('td');
+      ldrCell.textContent = (ldrs[i] !== null && ldrs[i] !== undefined) ? ldrs[i].toFixed(2) : '—';
+      row.appendChild(tsCell);
+      row.appendChild(ldrCell);
+      tableBody.appendChild(row);
+    }
+  }
+
+  async function refreshLightData() {
+    try {
+      const q = query(REF, limitToLast(HIST_LIMIT));
+      const snap = await get(q);
+      if (!snap.exists()) return;
+      const obj = snap.val();
+      const arr = Object.entries(obj).map(([k, v]) => ({ key: k, ...(v || {}) }));
+      arr.sort((a, b) => sampleTimestampMs(a) - sampleTimestampMs(b));
+      const labels = arr.map(s => new Date(sampleTimestampMs(s)).toLocaleString());
+      const ldrs = arr.map(s => (typeof s.ldr === 'number') ? s.ldr : null);
+      chartLight.data.labels = labels.slice();
+      chartLight.data.datasets[0].data = ldrs.slice();
+      chartLight.update();
+      renderTable(labels, ldrs);
+    } catch (e) {
+      tableBody.innerHTML = '<tr><td colspan="2">Error loading data</td></tr>';
+    }
+  }
+
+  refreshLightData();
+
+  try {
+    const qRealtime = query(REF, limitToLast(HIST_LIMIT));
+    onValue(qRealtime, (snapshot) => {
+      if (!snapshot.exists()) return;
+      const val = snapshot.val();
+      const arr = Object.values(val || {});
+      arr.sort((a, b) => sampleTimestampMs(a) - sampleTimestampMs(b));
+      const labels = arr.map(s => new Date(sampleTimestampMs(s)).toLocaleString());
+      const ldrs = arr.map(s => (typeof s.ldr === 'number') ? s.ldr : null);
+      chartLight.data.labels = labels.slice();
+      chartLight.data.datasets[0].data = ldrs.slice();
+      chartLight.update();
+      renderTable(labels, ldrs);
+    }, (e) => {
+      tableBody.innerHTML = '<tr><td colspan="2">Realtime update error</td></tr>';
+    });
+  } catch (e) {}
+</script>
+
+
+<!-- Profile + auth logic (unchanged) -->	
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
+  import { doc, onSnapshot, getDoc } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
+
+  const topbarUsernameEl = document.getElementById('topbarUsername');
+  const topbarAvatarEl   = document.getElementById('topbarAvatar');
+  const greetingEl       = document.getElementById('greeting');
+
+  // default avatar if none provided
+  const DEFAULT_AVATAR = 'img/undraw_profile.svg';
+
+  let unsubscribeUserDoc = null;
+
+  onAuthStateChanged(auth, async (user) => {
+    // cleanup previous listener
+    if (unsubscribeUserDoc) {
+      unsubscribeUserDoc();
+      unsubscribeUserDoc = null;
+    }
+
+    if (!user) {
+      // no user -> redirect to login (or leave page depending on your flow)
+      console.log('No user signed in — redirecting to login.');
+      location.replace('login.html');
+      return;
+    }
+
+    // 1) immediate UI from auth object (fast)
+    const displayName = user.displayName || '';
+    const email = user.email || '';
+    topbarUsernameEl.textContent = displayName || email.split('@')[0] || 'User';
+    topbarAvatarEl.src = user.photoURL || DEFAULT_AVATAR;
+    greetingEl.textContent = `Hello ${displayName || email.split('@')[0] || 'User'} !`;
+
+    // 2) attempt to subscribe to users/{uid} for realtime updates (preferred)
+    const userDocRef = doc(db, 'users', user.uid);
+
+    // if the doc exists we subscribe; if not, simply keep auth values
+    try {
+      const snap = await getDoc(userDocRef);
+      if (snap.exists()) {
+        // realtime updates
+        unsubscribeUserDoc = onSnapshot(userDocRef, (snapshot) => {
+          if (!snapshot.exists()) return;
+          const data = snapshot.data();
+
+          // username logic: prefer Firestore username, fallback to auth.displayName or email prefix
+          const uname = data.username || user.displayName || (user.email ? user.email.split('@')[0] : null) || 'User';
+          topbarUsernameEl.textContent = uname;
+          greetingEl.textContent = `Hello ${uname} !`;
+
+          // avatar logic: prefer Firestore avatarUrl -> auth.photoURL -> default
+          if (data.avatarUrl) {
+            topbarAvatarEl.src = data.avatarUrl;
+          } else if (user.photoURL) {
+            topbarAvatarEl.src = user.photoURL;
+          } else {
+            topbarAvatarEl.src = DEFAULT_AVATAR;
+          }
+        }, (err) => {
+          console.error('users/{uid} onSnapshot error:', err);
+        });
+      } else {
+        // no doc: keep auth fields (already set). You may choose to create a doc on first load.
+        console.log('users/{uid} doc not found; using auth values.');
+      }
+    } catch (err) {
+      console.error('Error accessing users/{uid}:', err);
+    }
+  });
+</script>
+
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
+  import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
+
+  const profileLink = document.getElementById('profileLink');
+
+  profileLink.addEventListener('click', async (e) => {
+    e.preventDefault();
+
+    // If auth not ready, wait for it
+    let user = auth.currentUser;
+    if (!user) {
+      // wait for onAuthStateChanged once
+      user = await new Promise(resolve => {
+        const unsub = onAuthStateChanged(auth, (u) => {
+          unsub();
+          resolve(u);
+        });
+      });
+    }
+
+    if (!user) {
+      // not signed in -> go to login
+      return window.location.href = 'login.html';
+    }
+
+    try {
+      const userDocRef = doc(db, 'users', user.uid);
+      const snap = await getDoc(userDocRef);
+
+      if (snap.exists()) {
+        // A user doc exists -> go to regular profile page
+        window.location.href = 'profile.html';
+      } else {
+        // No user doc -> send them to account creation for admins
+        // (profileadmin.html will create/convert the account)
+        window.location.href = 'profileadmin.html';
+      }
+    } catch (err) {
+      console.error('Error checking user doc:', err);
+      //fallback to safe choice
+      window.location.href = 'profileadmin.html';
+    }
+  });
+</script>
+
+
+	
+</body>
+</html>
