@@ -212,6 +212,11 @@
                     >
                         <h1>Light</h1>
                         
+						<a href="javascript:void(0)" id="generateReportBtn" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm">
+  <i class="fas fa-download fa-sm text-white-50"></i> Generate Light Report
+</a>
+						
+						
                     </div>
 
                     <!-- Scroll to Top Button-->
@@ -317,7 +322,7 @@
   const REF = dbRef(rtdb, REF_PATH);
 
   const ctxLight = document.getElementById('myLightChart').getContext('2d');
-  const chartLight = new Chart(ctxLight, {
+  window.chartLight = new Chart(ctxLight, {
     type: 'line',
     data: {
       labels: [],
@@ -564,7 +569,55 @@
   });
 </script>
 
+<!--PDF-->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 
+
+<script>
+
+document.getElementById('generateReportBtn').addEventListener('click', () => {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  let y = 20;
+  const now = new Date();
+
+  // Header
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text("SmartLux Night Light - Light Report", 10, y);
+  y += 15;
+
+  // Date
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Generated on: ${now.toLocaleString()}`, 10, y);
+  y += 15;
+
+  // Prepare data
+  const labels = window.chartLight?.data.labels || [];
+  const lights = window.chartLight?.data.datasets[0].data || [];
+
+  const rows = [];
+  for (let i = 0; i < Math.min(labels.length, 50); i++) {
+    rows.push([labels[i], (lights[i] !== null && lights[i] !== undefined) ? lights[i].toFixed(2) : 'N/A']);
+  }
+
+  // Generate table
+  doc.autoTable({
+    startY: y,
+    head: [['Timestamp', 'Light (lx)']],
+    body: rows,
+    theme: 'grid',
+    headStyles: { fillColor: [75, 192, 192] },
+    styles: { fontSize: 10 },
+  });
+
+  // Save PDF
+  doc.save(`SmartLux_Light_Report_${now.toISOString()}.pdf`);
+});
+
+</script>
 
 </body>
 </html>
