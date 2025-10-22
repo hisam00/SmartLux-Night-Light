@@ -253,6 +253,10 @@
                     >
                         <h1>Humidity</h1>
                         
+						<a href="javascript:void(0)" id="generateReportBtn" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm">
+  <i class="fas fa-download fa-sm text-white-50"></i> Generate Humidity Report
+</a>
+						
                     </div>
 
                     <!-- Scroll to Top Button-->
@@ -366,7 +370,7 @@
 
     // Set up Chart
     const ctxHum = document.getElementById('myHumidityChart').getContext('2d');
-    const chartHum = new Chart(ctxHum, {
+    window.chartHum = new Chart(ctxHum, {
         type: 'line',
         data: { labels: [], datasets: [{ label: 'Humidity', data: [], lineTension: 0.3, backgroundColor: 'rgba(54,162,235,0.05)', borderColor: 'rgba(54,162,235,1)', pointRadius: 3, pointHitRadius: 10 }] },
         options: {
@@ -584,7 +588,59 @@
   });
 </script>
 
+<!--PDF-->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 
+
+<script>
+document.getElementById('generateReportBtn').addEventListener('click', event => {
+  event.preventDefault();
+
+  const { jsPDF } = window.jspdf;
+  if (!jsPDF) return alert("jsPDF not loaded");
+
+  const doc = new jsPDF();
+  const margin = 10;
+  let y = margin;
+  const now = new Date();
+
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text("SmartLux Night Light - Humidity Report", margin, y);
+  y += 15;
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Report generated on: ${now.toLocaleString()}`, margin, y);
+  y += 15;
+
+  let labels = window.chartHum?.data.labels || [];
+  let hums = window.chartHum?.data.datasets[0].data || [];
+
+  const rowCount = Math.min(labels.length, 50);
+  const rows = [];
+
+  for(let i=0; i<rowCount; i++) {
+    rows.push([labels[i], (hums[i] !== null && hums[i] !== undefined) ? hums[i].toFixed(2) : "N/A"]);
+  }
+
+  doc.autoTable({
+    startY: y,
+    head: [['Timestamp', 'Humidity (%)']],
+    body: rows,
+    theme: 'grid',
+    headStyles: { fillColor: [54, 162, 235] },
+    styles: { fontSize: 10 },
+    margin: { left: margin, right: margin },
+    didDrawPage: data => {
+      y = data.cursor.y + 10;
+    }
+  });
+
+  doc.save(`SmartLux_Humidity_Report_${now.toISOString()}.pdf`);
+});
+
+</script>
 	
 </body>
 </html>
