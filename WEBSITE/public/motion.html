@@ -212,6 +212,12 @@
                     >
                         <h1>Motion</h1>
                         
+						<a href="javascript:void(0)" id="generateReportBtn" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm">
+  <i class="fas fa-download fa-sm text-white-50"></i> Generate Motion Report
+</a>
+
+						
+						
                     </div>
 
                     <!-- Scroll to Top Button-->
@@ -317,7 +323,7 @@
   const REF = dbRef(rtdb, REF_PATH);
 
   const ctxMotion = document.getElementById('myMotionChart').getContext('2d');
-  const chartMotion = new Chart(ctxMotion, {
+  window.chartMotion = new Chart(ctxMotion, {
     type: 'bar',
     data: {
       labels: [],
@@ -572,7 +578,64 @@
   });
 </script>
 
+<!--PDF-->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 
+
+<script>
+document.getElementById('generateReportBtn').addEventListener('click', event => {
+  event.preventDefault();
+
+  const { jsPDF } = window.jspdf;
+  if (!jsPDF) return alert("jsPDF library not loaded");
+
+  const doc = new jsPDF();
+  const margin = 10;
+  let y = margin;
+  const now = new Date();
+
+  // Header
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text("SmartLux Night Light - Motion Report", margin, y);
+  y += 15;
+
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Report generated on: ${now.toLocaleString()}`, margin, y);
+  y += 15;
+
+  // Prepare table data from chartMotion
+  let labels = window.chartMotion?.data.labels || [];
+  let motions = window.chartMotion?.data.datasets[0].data || [];
+
+  const rowCount = Math.min(labels.length, 50);
+  const rows = [];
+
+  for(let i=0; i < rowCount; i++) {
+    let motionValue = motions[i] !== null && motions[i] !== undefined ? motions[i] : "N/A";
+    rows.push([labels[i], motionValue]);
+  }
+
+  // Add table using autoTable plugin
+  doc.autoTable({
+    startY: y,
+    head: [['Timestamp', 'Motion Count']],
+    body: rows,
+    theme: 'grid',
+    headStyles: { fillColor: [255, 206, 86] },
+    styles: { fontSize: 10 },
+    margin: { left: margin, right: margin },
+    didDrawPage: (data) => {
+      y = data.cursor.y + 10;
+    }
+  });
+
+  doc.save(`SmartLux_Motion_Report_${now.toISOString()}.pdf`);
+});
+
+</script>
 
 </body>
 </html>
