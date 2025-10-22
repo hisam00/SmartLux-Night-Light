@@ -253,6 +253,10 @@
                     >
                         <h1>Temperature</h1>
                         
+						<a href="javascript:void(0)" id="generateReportBtn" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm">
+  <i class="fas fa-download fa-sm text-white-50"></i> Generate Temperature Report
+</a>
+						
                     </div>
 
                     <!-- Scroll to Top Button-->
@@ -366,7 +370,7 @@ const REF_PATH = `devices/${DEVICE_ID}/sensors`;
 const REF = dbRef(rtdb, REF_PATH);
 
 const chartCtx = document.getElementById('myTemperatureChart').getContext('2d');
-const chartTemp = new Chart(chartCtx, {
+window.chartTemp = new Chart(chartCtx, {
     type: 'line',
     data: { labels: [], datasets: [{ label: 'Temperature', data: [], lineTension: 0.3, backgroundColor: 'rgba(255,99,132,0.05)', borderColor: 'rgba(255,99,132,1)', pointRadius: 3, pointHitRadius: 10 }] },
     options: {
@@ -576,6 +580,66 @@ try {
       window.location.href = 'profileadmin.html';
     }
   });
+</script>
+
+<!--PDF-->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+
+<script>
+document.getElementById('generateReportBtn').addEventListener('click', event => {
+  event.preventDefault();
+
+  const { jsPDF } = window.jspdf;
+  if (!jsPDF) return alert("jsPDF library not loaded");
+
+  const doc = new jsPDF();
+  const margin = 10;
+  let y = margin;
+
+  const now = new Date();
+
+  // Header
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text("SmartLux Night Light - Temperature Report", margin, y);
+  y += 15;
+
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Report generated on: ${now.toLocaleString()}`, margin, y);
+  y += 15;
+
+  // Prepare table data from chart
+  let labels = window.chartTemp?.data.labels || [];
+  let temps = window.chartTemp?.data.datasets[0].data || [];
+
+  const rowCount = Math.min(labels.length, 50);
+  const rows = [];
+  for (let i = 0; i < rowCount; i++) {
+    let label = labels[i];
+    let tempValue = (temps[i] !== null && temps[i] !== undefined) ? temps[i].toFixed(2) : "N/A";
+    rows.push([label, tempValue]);
+  }
+
+  // Add table using autoTable
+  doc.autoTable({
+    startY: y,
+    head: [['Timestamp', 'Temperature (°C)']],
+    body: rows,
+    theme: 'grid',
+    headStyles: { fillColor: [255, 0, 0]  },
+    styles: { fontSize: 10 },
+    margin: { left: margin, right: margin },
+    didDrawPage: (data) => {
+      y = data.cursor.y + 10;
+    }
+  });
+
+  doc.save(`SmartLux_Temperature_Report_${now.toISOString()}.pdf`);
+});
+
 </script>
 
 
