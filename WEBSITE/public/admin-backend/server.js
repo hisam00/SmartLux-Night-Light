@@ -2,16 +2,57 @@
 const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
+const axios = require('axios');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const serviceAccount = require('./serviceAccountKey.json');
+function preventColdStart() {
+  // Get the URL Render assigns to your service from environment variables
+  const RENDER_EXTERNAL_URL = process.env.RENDER_EXTERNAL_URL;
+  if (!RENDER_EXTERNAL_URL) {
+    console.log("RENDER_EXTERNAL_URL not set. Cold start prevention disabled.");
+    return;
+  }
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
+  const pingUrl = `${RENDER_EXTERNAL_URL}/`; 
+
+  // Ping every 10 minutes (600,000 milliseconds)
+  setInterval(() => {
+    axios.get(pingUrl)
+      .then(() => console.log(`[Keep-Alive] Pinged self successfully at ${new Date().toLocaleTimeString()}`))
+      .catch(err => console.error(`[Keep-Alive] Ping failed: ${err.message}`));
+  }, 600000); 
+}
+
+if (!process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
+  console.error("FATAL: FIREBASE_SERVICE_ACCOUNT_BASE64 environment variable not set.");
+  // Exit the process if the critical credential is not found
+  process.exit(1);
+}
+
+try {
+    // Decode the Base64 string from the environment variable back into a JSON string
+    const serviceAccountJson = Buffer.from(
+      process.env.FIREBASE_SERVICE_ACCOUNT_BASE64,
+      'base64'
+    ).toString();
+    
+    // Parse the JSON string into an object
+    const serviceAccount = JSON.parse(serviceAccountJson);
+
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+} catch (error) {
+    console.error("FATAL: Failed to initialize Firebase Admin SDK from environment variable.", error);
+    process.exit(1);
+}
+// =========================================================
+// 🔄 ADJUSTMENT END
+// =========================================================
+
 
 const auth = admin.auth();
 const firestore = admin.firestore();
@@ -190,9 +231,6 @@ app.post('/api/sendResetLink', async (req, res) => {
 });
 
 
-// ======= add these requires near top of server.js =======
-const axios = require('axios');
-
 // ======= Middleware to verify Firebase ID token (Authorization: Bearer <idToken>) =======
 async function verifyFirebaseToken(req, res, next) {
   try {
@@ -222,7 +260,7 @@ function isValidUrl(u) {
 
 // ======= Firestore shape (collection 'webhooks', doc.id == deviceId) =======
 // { motion: [ { id, url, owner, createdAt, updatedAt }, ... ],
-//   temperature: [ ... ] }
+//  temperature: [ ... ] }
 
 // helper to read subscriber URLs for a device/event (deduped)
 async function getSubscribers(deviceId, eventType) {
@@ -414,7 +452,15 @@ app.post('/api/notify/forward/:deviceId', async (req, res) => {
   try {
     // validate token if configured
     const expected = process.env.NOTIFY_TOKEN || '';
+    console.log('[notify] token auth', expected ? 'ENABLED' : 'DISABLED');
     const token = req.query.token || '';
+    console.log('[notify/forward] incoming request for deviceId=%s token=%s', req.params.deviceId, token);
+
+    // Log useful debug info immediately
+    console.log('[notify/forward] headers:', req.headers);
+    // req.body should be available because you have app.use(express.json())
+    console.log('[notify/forward] body (raw):', req.body);
+
     if (expected && token !== expected) {
       console.warn('[notify/forward] invalid or missing token');
       return res.status(401).json({ ok: false, error: 'invalid token' });
@@ -429,13 +475,14 @@ app.post('/api/notify/forward/:deviceId', async (req, res) => {
     // determine event type from payload
     const eventType = payload.event || payload.event_type || 'motion';
     const normalizedEvent = (eventType === 'high_temperature' || eventType === 'temperature') ? 'high_temperature' : 'motion';
-    // map to our stored keys
     const enumKey = (normalizedEvent === 'motion') ? 'motion' : 'temperature';
 
     // fan-out asynchronously (non-blocking)
     (async () => {
       try {
         const subs = await getSubscribers(deviceId, enumKey);
+        console.log('[notify/forward] found %d subscribers for device=%s event=%s', (subs || []).length, deviceId, enumKey);
+
         if (!subs || subs.length === 0) {
           console.log(`[notify/forward] no subscribers for ${deviceId} ${enumKey}`);
           return;
@@ -444,16 +491,18 @@ app.post('/api/notify/forward/:deviceId', async (req, res) => {
         const axiosOpts = { timeout: 5000, headers: { 'Content-Type': 'application/json' } };
         const promises = subs.map(url =>
           axios.post(url, payload, axiosOpts)
-               .then(r => ({ url, status: r.status }))
+               .then(r => ({ url, status: r.status, data: r.data }))
                .catch(e => ({ url, error: e.message || String(e) }))
         );
 
         const settled = await Promise.allSettled(promises);
         settled.forEach((r, i) => {
           if (r.status === 'fulfilled') {
+            // r.value includes url/status/data for clarity
             console.log('[notify/forward] posted ->', subs[i], r.value);
           } else {
-            console.warn('[notify/forward] failed ->', subs[i], r.reason);
+            // r.reason might have error information
+            console.warn('[notify/forward] failed ->', subs[i], r.reason || r);
           }
         });
       } catch (err) {
@@ -469,6 +518,10 @@ app.post('/api/notify/forward/:deviceId', async (req, res) => {
 
 
 const HOST = '0.0.0.0';
-const PORT = '3000';
-app.listen(PORT, HOST, () => console.log(`Server running at http://${HOST}:${PORT}`));
+// Render automatically provides a PORT environment variable. Use it!
+const PORT = process.env.PORT || 3000; 
 
+app.listen(PORT, HOST, () => {
+    console.log(`Server running at http://${HOST}:${PORT}`);
+    preventColdStart(); // <--- START THE PING LOOP HERE
+});
