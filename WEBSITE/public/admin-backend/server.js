@@ -449,6 +449,7 @@ app.get('/api/webhooks/:deviceId', verifyFirebaseToken, async (req, res) => {
 // Recommended: protect this endpoint with a query token. Set process.env.NOTIFY_TOKEN = 'LONGSECRET' in your env.
 // ESP will read this full URL from RTDB (devices/<id>/notify/motion_url etc)
 app.post('/api/notify/forward/:deviceId', async (req, res) => {
+  console.log(`[notify/forward] received at ${new Date().toISOString()} from ${req.socket.remoteAddress}:${req.socket.remotePort}`);
   try {
     // validate token if configured
     const expected = process.env.NOTIFY_TOKEN || '';
@@ -470,6 +471,8 @@ app.post('/api/notify/forward/:deviceId', async (req, res) => {
     const payload = req.body || {};
 
     // respond fast so ESP isn't blocked
+	res.set('Connection', 'close');
+    console.log(`[notify/forward] responding 202 to ${req.socket.remoteAddress}:${req.socket.remotePort} at ${new Date().toISOString()}`);
     res.status(202).json({ ok: true, message: 'Accepted for forwarding' });
 
     // determine event type from payload
