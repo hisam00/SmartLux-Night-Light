@@ -161,7 +161,7 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(motionSensorPin), motionISR, RISING);
 
   // NTP
-  configTime(0, 0, "pool.ntp.org", "time.google.com");
+  configTime(0, 0, "pool.ntp.org", "time.google.com", "time.cloudflare.com");
   Serial.println("Waiting for NTP time sync (up to 10s)...");
   time_t now = time(nullptr);
   unsigned long start = millis();
