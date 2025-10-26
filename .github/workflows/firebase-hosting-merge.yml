@@ -11,7 +11,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: npm ci && npm run build
+
+      # 1. Install dependencies (npm ci)
+      - name: Install Dependencies in Public Folder
+        run: npm ci
+        # The key change: tells GitHub Actions to execute the command inside this folder
+        working-directory: ./public 
+
+      # 2. Build the project (npm run build)
+      - name: Build Project in Public Folder
+        run: npm run build
+        # Execute the build command inside the public folder
+        working-directory: ./public
+
+      # 3. Deploy to Firebase Hosting
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
