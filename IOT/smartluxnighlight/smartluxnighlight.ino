@@ -348,8 +348,8 @@ void notifyTask(void* pvParameters) {
   HTTPClient http;
 
   // Set timeouts (already increased, but confirming)
-  http.setConnectTimeout(15000); // 15s for connection
-  http.setTimeout(15000);       // 15s for response
+  http.setConnectTimeout(60000); // 60s for connection
+  http.setTimeout(60000);       // 60s for response
 
   for (;;) {
     NotifyEvent ev;
@@ -396,33 +396,44 @@ void notifyTask(void* pvParameters) {
       }
 
       // Initialize HTTP client
-      if (http.begin(*client, targetUrl)) {
-        http.addHeader("Content-Type", "application/json");
-        http.addHeader("Content-Length", String(payload.length())); // Explicitly set Content-Length
-        http.addHeader("Connection", "close"); // Ensure connection closes after request
+      bool success = false;
+      const int maxRetries = 3;
+      for (int retry = 0; retry < maxRetries; ++retry) {
+        if (http.begin(*client, targetUrl)) {
+          http.addHeader("Content-Type", "application/json");
+          http.addHeader("Content-Length", String(payload.length())); // Explicitly set Content-Length
+          http.addHeader("Connection", "close"); // Ensure connection closes after request
 
-        // Attempt POST
-        int httpCode = http.POST(payload);
-        if (httpCode > 0) {
-          Serial.printf("[notifyTask] HTTP %d\n", httpCode);
-          String resp = http.getString();
-          Serial.printf("[notifyTask] Response: %s\n", resp.c_str());
+          // Attempt POST
+          int httpCode = http.POST(payload);
+          if (httpCode > 0) {
+            Serial.printf("[notifyTask] HTTP %d\n", httpCode);
+            String resp = http.getString();
+            Serial.printf("[notifyTask] Response: %s\n", resp.c_str());
+            success = true;
+          } else {
+            Serial.printf("[notifyTask] POST failed: %s (retry %d/%d)\n", http.errorToString(httpCode).c_str(), retry + 1, maxRetries);
+            // Additional debug info
+            Serial.printf("[notifyTask] WiFi status: %d\n", WiFi.status());
+            Serial.printf("[notifyTask] Free heap: %d bytes\n", ESP.getFreeHeap());
+          }
+          http.end();
+          if (success) break;
         } else {
-          Serial.printf("[notifyTask] POST failed: %s\n", http.errorToString(httpCode).c_str());
-          // Additional debug info
-          Serial.printf("[notifyTask] WiFi status: %d\n", WiFi.status());
-          Serial.printf("[notifyTask] Free heap: %d bytes\n", ESP.getFreeHeap());
+          Serial.printf("[notifyTask] HTTP begin failed (retry %d/%d)\n", retry + 1, maxRetries);
+          // Debug connection failure
+          if (!client->connect(targetUrl.substring(8).c_str(), 443)) { // Skip https://
+            Serial.println("[notifyTask] Direct connect to server failed");
+          } else {
+            Serial.println("[notifyTask] Direct connect succeeded, issue with HTTP setup");
+            client->stop();
+          }
         }
-        http.end();
-      } else {
-        Serial.println("[notifyTask] HTTP begin failed");
-        // Debug connection failure
-        if (!client->connect(targetUrl.substring(8).c_str(), 443)) { // Skip https://
-          Serial.println("[notifyTask] Direct connect to server failed");
-        } else {
-          Serial.println("[notifyTask] Direct connect succeeded, issue with HTTP setup");
-          client->stop();
-        }
+        vTaskDelay(5000 * (retry + 1) / portTICK_PERIOD_MS); // Backoff: 5s, 10s, 15s
+      }
+
+      if (!success) {
+        Serial.println("[notifyTask] All retries failed for this event.");
       }
 
       // Cleanup to free memory
