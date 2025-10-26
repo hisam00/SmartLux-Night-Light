@@ -27,6 +27,7 @@ const float hotThreshold   = 33.0;
 const unsigned long motionTimeout = 60000; // milisecond tips 1 min = 60000 mili
 const unsigned long dhtInterval = 2000;    // ms
 const unsigned long sendInterval = 10000;  // ms
+const unsigned long debounceDelay = 50;    // ms
 
 // WiFi / Firebase
 const char* WIFI_SSID     = "secret";
@@ -40,6 +41,7 @@ const char* FIREBASE_DATABASE_URL = "https://smartlux-night-light-default-rtdb.a
 // ISR-shared state
 volatile bool motionTriggeredISR = false;
 volatile unsigned long lastMotionTime = 0;
+volatile unsigned long lastTriggerTime = 0;
 bool ledsActive = false;
 
 // Remote override state
@@ -108,9 +110,13 @@ void controlTask(void* pvParameters);
 
 // ISR for motion (RISING)
 void IRAM_ATTR motionISR() {
-  motionTriggeredISR = true;
   TickType_t t = xTaskGetTickCountFromISR();
-  lastMotionTime = (unsigned long)t * portTICK_PERIOD_MS;
+  unsigned long now = (unsigned long)t * portTICK_PERIOD_MS;
+  if (now - lastTriggerTime >= debounceDelay) {
+    motionTriggeredISR = true;
+    lastMotionTime = now;
+    lastTriggerTime = now;
+  }
 }
 
 void setup() {
@@ -147,7 +153,7 @@ void setup() {
     Serial.println("Failed to create notify queue!");
   } else {
     // Notify task pinned to core 0
-    xTaskCreatePinnedToCore(notifyTask, "notifyTask", 16384, NULL, 2, NULL, 0);
+    xTaskCreatePinnedToCore(notifyTask, "notifyTask", 12288, NULL, 2, NULL, 0);
   }
 
   // attach interrupt (ISR only sets a flag)
@@ -182,13 +188,21 @@ void loop() {
 
   // motion: check ISR flag first, fallback to polling
   bool motionDetected = false;
+  static unsigned long lastPollTrigger = 0;
+  static bool lastPollState = LOW;
+
   if (motionTriggeredISR) {
     motionTriggeredISR = false; // clear flag
     motionDetected = true;
     // lastMotionTime updated in ISR
   } else {
-    motionDetected = (digitalRead(motionSensorPin) == HIGH);
-    if (motionDetected) lastMotionTime = millis();
+    bool current = digitalRead(motionSensorPin);
+    if (current == HIGH && lastPollState == LOW && millis() - lastPollTrigger >= debounceDelay) {
+      motionDetected = true;
+      lastMotionTime = millis();
+      lastPollTrigger = millis();
+    }
+    lastPollState = current;
   }
 
   // update ledsActive based on timeout
@@ -330,9 +344,9 @@ void notifyTask(void* pvParameters) {
   client->setInsecure(); // For testing; consider proper certificates in production
   HTTPClient http;
 
-  // Set longer timeouts to handle potential spin-up delays
-  http.setConnectTimeout(30000); // 30s for connection
-  http.setTimeout(30000);       // 30s for response
+  // Set timeouts (already increased, but confirming)
+  http.setConnectTimeout(15000); // 15s for connection
+  http.setTimeout(15000);       // 15s for response
 
   for (;;) {
     NotifyEvent ev;
@@ -378,48 +392,34 @@ void notifyTask(void* pvParameters) {
         connectWiFi();
       }
 
-      // Attempt POST with retries
-      int httpCode = -1;
-      const int maxRetries = 3;
-      for (int retry = 0; retry < maxRetries; retry++) {
-        if (http.begin(*client, targetUrl)) {
-          http.addHeader("Content-Type", "application/json");
-          http.addHeader("Content-Length", String(payload.length())); // Explicitly set Content-Length
-          http.addHeader("Connection", "close"); // Ensure connection closes after request
+      // Initialize HTTP client
+      if (http.begin(*client, targetUrl)) {
+        http.addHeader("Content-Type", "application/json");
+        http.addHeader("Content-Length", String(payload.length())); // Explicitly set Content-Length
+        http.addHeader("Connection", "close"); // Ensure connection closes after request
 
-          httpCode = http.POST(payload);
-          if (httpCode > 0) {
-            Serial.printf("[notifyTask] HTTP %d (attempt %d)\n", httpCode, retry + 1);
-            String resp = http.getString();
-            Serial.printf("[notifyTask] Response: %s\n", resp.c_str());
-            http.end();
-            break; // Success, exit retry loop
-          } else {
-            Serial.printf("[notifyTask] POST failed (attempt %d): %s\n", retry + 1, http.errorToString(httpCode).c_str());
-            // Additional debug info
-            Serial.printf("[notifyTask] WiFi status: %d\n", WiFi.status());
-            Serial.printf("[notifyTask] Free heap: %d bytes\n", ESP.getFreeHeap());
-            http.end();
-          }
+        // Attempt POST
+        int httpCode = http.POST(payload);
+        if (httpCode > 0) {
+          Serial.printf("[notifyTask] HTTP %d\n", httpCode);
+          String resp = http.getString();
+          Serial.printf("[notifyTask] Response: %s\n", resp.c_str());
         } else {
-          Serial.printf("[notifyTask] HTTP begin failed (attempt %d)\n", retry + 1);
-          // Debug connection failure
-          String host = targetUrl.substring(targetUrl.indexOf("://") + 3);
-          host = host.substring(0, host.indexOf('/'));
-          if (!client->connect(host.c_str(), 443)) {
-            Serial.println("[notifyTask] Direct connect to server failed");
-          } else {
-            Serial.println("[notifyTask] Direct connect succeeded, issue with HTTP setup");
-            client->stop();
-          }
+          Serial.printf("[notifyTask] POST failed: %s\n", http.errorToString(httpCode).c_str());
+          // Additional debug info
+          Serial.printf("[notifyTask] WiFi status: %d\n", WiFi.status());
+          Serial.printf("[notifyTask] Free heap: %d bytes\n", ESP.getFreeHeap());
         }
-
-        // Delay before next retry (exponential backoff)
-        vTaskDelay((1000 << retry) / portTICK_PERIOD_MS); // 1s, 2s, 4s
-      }
-
-      if (httpCode <= 0) {
-        Serial.println("[notifyTask] All retries failed. Dropping event.");
+        http.end();
+      } else {
+        Serial.println("[notifyTask] HTTP begin failed");
+        // Debug connection failure
+        if (!client->connect(targetUrl.substring(8).c_str(), 443)) { // Skip https://
+          Serial.println("[notifyTask] Direct connect to server failed");
+        } else {
+          Serial.println("[notifyTask] Direct connect succeeded, issue with HTTP setup");
+          client->stop();
+        }
       }
 
       // Cleanup to free memory
