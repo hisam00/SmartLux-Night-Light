@@ -147,7 +147,7 @@ void setup() {
     Serial.println("Failed to create notify queue!");
   } else {
     // Notify task pinned to core 0
-    xTaskCreatePinnedToCore(notifyTask, "notifyTask", 12288, NULL, 2, NULL, 0);
+    xTaskCreatePinnedToCore(notifyTask, "notifyTask", 16384, NULL, 2, NULL, 0);
   }
 
   // attach interrupt (ISR only sets a flag)
@@ -326,14 +326,18 @@ bool enqueueSensorData(int ldr, bool motion, float hum, float temp) {
 
 // Notify task: processes NotifyEvents immediately and calls webhook URLs
 void notifyTask(void* pvParameters) {
-  WiFiClient *client = new WiFiClient();
+  WiFiClientSecure *client = new WiFiClientSecure();
+  client->setInsecure(); // For testing; consider proper certificates in production
   HTTPClient http;
 
+  // Set longer timeouts to handle potential spin-up delays
+  http.setConnectTimeout(30000); // 30s for connection
+  http.setTimeout(30000);       // 30s for response
 
   for (;;) {
     NotifyEvent ev;
     if (xQueueReceive(notifyQueue, &ev, portMAX_DELAY) == pdTRUE) {
-      // Only proceed if notify is enabled (option != "none") and URL present
+      // Skip if notifications disabled or no URL
       if (notifyCfg.option == "none") {
         Serial.println("[notifyTask] notify.option == none, skipping event.");
         continue;
@@ -344,49 +348,86 @@ void notifyTask(void* pvParameters) {
       else if (ev.type == EVT_HIGH_TEMP) targetUrl = notifyCfg.temp_url;
 
       if (targetUrl.length() == 0) {
-        Serial.println("[notifyTask] No target URL configured for this event, skipping.");
+        Serial.println("[notifyTask] No target URL configured, skipping.");
         continue;
       }
 
       // Build payload
-      char payload[256];
+      StaticJsonDocument<256> doc;
+      doc["device"] = DEVICE_ID;
+      doc["event"] = (ev.type == EVT_MOTION) ? "motion" : "high_temperature";
+      doc["timestamp_ms"] = ev.epoch_ms;
       if (ev.type == EVT_MOTION) {
-        if (isnan(ev.temperature)) {
-          snprintf(payload, sizeof(payload),
-            "{\"device\":\"%s\",\"event\":\"motion\",\"timestamp_ms\":%lu,\"ldr\":%d}",
-            DEVICE_ID, ev.epoch_ms, ev.ldr);
-        } else {
-          snprintf(payload, sizeof(payload),
-            "{\"device\":\"%s\",\"event\":\"motion\",\"timestamp_ms\":%lu,\"ldr\":%d,\"temperature\":%.2f}",
-            DEVICE_ID, ev.epoch_ms, ev.ldr, ev.temperature);
-        }
+        doc["ldr"] = ev.ldr;
+        if (!isnan(ev.temperature)) doc["temperature"] = ev.temperature;
       } else {
-        snprintf(payload, sizeof(payload),
-          "{\"device\":\"%s\",\"event\":\"high_temperature\",\"timestamp_ms\":%lu,\"temperature\":%.2f,\"threshold\":%.2f}",
-          DEVICE_ID, ev.epoch_ms, ev.temperature, notifyCfg.high_temp_threshold);
+        doc["temperature"] = ev.temperature;
+        doc["threshold"] = notifyCfg.high_temp_threshold;
       }
 
-      Serial.print("[notifyTask] POST -> ");
-      Serial.println(targetUrl);
-      Serial.println(payload);
+      String payload;
+      serializeJson(doc, payload);
 
-      if (http.begin(*client, targetUrl)) {
-        http.addHeader("Content-Type", "application/json");
-        int httpCode = http.POST(String(payload));
-        if (httpCode > 0) {
-          Serial.printf("[notifyTask] HTTP %d\n", httpCode);
-          String resp = http.getString();
-          Serial.println(resp);
-        } else {
-          Serial.printf("[notifyTask] POST failed: %s\n", http.errorToString(httpCode).c_str());
-        }
-        http.end();
-      } else {
-        Serial.println("[notifyTask] begin failed (notify)");
+      Serial.printf("[notifyTask] POST -> %s\n", targetUrl.c_str());
+      Serial.printf("[notifyTask] Payload: %s\n", payload.c_str());
+      Serial.printf("[notifyTask] Payload length: %d bytes\n", payload.length());
+
+      // Ensure WiFi is connected
+      if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("[notifyTask] WiFi disconnected, attempting reconnect...");
+        connectWiFi();
       }
 
+      // Attempt POST with retries
+      int httpCode = -1;
+      const int maxRetries = 3;
+      for (int retry = 0; retry < maxRetries; retry++) {
+        if (http.begin(*client, targetUrl)) {
+          http.addHeader("Content-Type", "application/json");
+          http.addHeader("Content-Length", String(payload.length())); // Explicitly set Content-Length
+          http.addHeader("Connection", "close"); // Ensure connection closes after request
 
-      vTaskDelay(10 / portTICK_PERIOD_MS);
+          httpCode = http.POST(payload);
+          if (httpCode > 0) {
+            Serial.printf("[notifyTask] HTTP %d (attempt %d)\n", httpCode, retry + 1);
+            String resp = http.getString();
+            Serial.printf("[notifyTask] Response: %s\n", resp.c_str());
+            http.end();
+            break; // Success, exit retry loop
+          } else {
+            Serial.printf("[notifyTask] POST failed (attempt %d): %s\n", retry + 1, http.errorToString(httpCode).c_str());
+            // Additional debug info
+            Serial.printf("[notifyTask] WiFi status: %d\n", WiFi.status());
+            Serial.printf("[notifyTask] Free heap: %d bytes\n", ESP.getFreeHeap());
+            http.end();
+          }
+        } else {
+          Serial.printf("[notifyTask] HTTP begin failed (attempt %d)\n", retry + 1);
+          // Debug connection failure
+          String host = targetUrl.substring(targetUrl.indexOf("://") + 3);
+          host = host.substring(0, host.indexOf('/'));
+          if (!client->connect(host.c_str(), 443)) {
+            Serial.println("[notifyTask] Direct connect to server failed");
+          } else {
+            Serial.println("[notifyTask] Direct connect succeeded, issue with HTTP setup");
+            client->stop();
+          }
+        }
+
+        // Delay before next retry (exponential backoff)
+        vTaskDelay((1000 << retry) / portTICK_PERIOD_MS); // 1s, 2s, 4s
+      }
+
+      if (httpCode <= 0) {
+        Serial.println("[notifyTask] All retries failed. Dropping event.");
+      }
+
+      // Cleanup to free memory
+      doc.clear();
+      payload = "";
+
+      // Delay to prevent tight loop on failure
+      vTaskDelay(100 / portTICK_PERIOD_MS); // 100ms delay
     }
   }
 
