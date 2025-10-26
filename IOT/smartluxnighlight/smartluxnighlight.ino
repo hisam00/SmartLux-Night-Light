@@ -28,6 +28,7 @@ const unsigned long motionTimeout = 60000; // milisecond tips 1 min = 60000 mili
 const unsigned long dhtInterval = 2000;    // ms
 const unsigned long sendInterval = 10000;  // ms
 const unsigned long debounceDelay = 50;    // ms
+const unsigned long highTempDebounce = 60000; // ms
 
 // WiFi / Firebase
 const char* WIFI_SSID     = "secret";
@@ -284,9 +285,10 @@ void loop() {
   }
 
   // If DHT read just happened and temperature > threshold: push immediate high-temp event
+  static unsigned long lastHighTempTrigger = 0;
   if (didDhtRead && !isnan(temperature)) {
     float threshold = notifyCfg.high_temp_threshold;
-    if (temperature > threshold) {
+    if (temperature > threshold && nowMs - lastHighTempTrigger >= highTempDebounce) {
       NotifyEvent ev;
       time_t nowt = time(nullptr);
       ev.epoch_ms = (nowt > 0) ? (unsigned long)nowt * 1000UL : millis();
@@ -294,6 +296,7 @@ void loop() {
       ev.ldr = lightValue;
       ev.temperature = temperature;
       if (notifyQueue) xQueueSend(notifyQueue, &ev, 0);
+      lastHighTempTrigger = nowMs;
     }
   }
 
