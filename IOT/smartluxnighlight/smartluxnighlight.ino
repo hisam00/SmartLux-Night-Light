@@ -206,6 +206,12 @@ void loop() {
     lastPollState = current;
   }
 
+  // Keep updating lastMotionTime and ensure ledsActive if motion pin is still HIGH
+  if (lastPollState == HIGH) {
+    lastMotionTime = millis();
+    ledsActive = true;
+  }
+
   // update ledsActive based on timeout
   if (motionDetected) ledsActive = true;
   else if (ledsActive && (millis() - lastMotionTime >= motionTimeout)) ledsActive = false;
