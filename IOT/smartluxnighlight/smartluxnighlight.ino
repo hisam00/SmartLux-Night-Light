@@ -106,7 +106,7 @@ void firebaseTask(void* pvParameters);
 void notifyTask(void* pvParameters);
 void fetchNotifyConfigOnce(); // helper to fetch notify config immediately
 
-// New: controlTask (Server-Sent Events streaming listener)
+// controlTask (Server-Sent Events streaming listener)
 void controlTask(void* pvParameters);
 
 // ISR for motion (RISING)
@@ -288,6 +288,9 @@ void loop() {
     ev.ldr = lightValue;
     ev.temperature = isnan(temperature) ? NAN : temperature;
     if (notifyQueue) xQueueSend(notifyQueue, &ev, 0);
+    // Immediate enqueue for sensor data on motion trigger
+    bool ok = enqueueSensorData(lightValue, motionDetected, humidity, temperature);
+    if (!ok) Serial.println("Warning: queue full, dropped motion data");
   }
 
   // If DHT read just happened and temperature > threshold: push immediate high-temp event
