@@ -57,6 +57,27 @@ try {
 const auth = admin.auth();
 const firestore = admin.firestore();
 
+// New: Sync user count from Auth to metadata/user_count
+app.get('/api/syncUserCount', async (req, res) => {
+  try {
+    let total = 0;
+    let nextPageToken;
+    do {
+      const listUsersResult = await auth.listUsers(1000, nextPageToken);
+      total += listUsersResult.users.length;
+      nextPageToken = listUsersResult.pageToken;
+    } while (nextPageToken);
+
+    const countRef = firestore.doc('metadata/user_count');
+    await countRef.set({ count: total });
+
+    res.json({ message: 'User count synced', count: total });
+  } catch (error) {
+    console.error('Sync error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // API: Create new user
 app.post('/api/createUser', async (req, res) => {
   try {
