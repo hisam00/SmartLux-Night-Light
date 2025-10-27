@@ -13,6 +13,8 @@
         rel="stylesheet" />
     <!-- Custom styles for this template-->
     <link href="css/sb-admin-2.min.css" rel="stylesheet" />
+	
+	<link href="vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet" />
     
     <style>
 
@@ -70,7 +72,7 @@
 			 <!-- Nav Item - Control -->
 			<li class="nav-item">
 				<a class="nav-link" href="humidity.html">
-					<i class="fas fa-fw fa-solid fa-water"></i>
+					<i class="fas fa-fw fa-solid fa-tint"></i>
 					<span>Humidity</span>
 				</a>
 			</li>
@@ -318,81 +320,103 @@
             <script src="vendor/jquery-easing/jquery.easing.min.js"></script>
             <script src="js/sb-admin-2.min.js"></script>
             <script src="vendor/chart.js/Chart.min.js"></script>
-            <script type="module">
+			
+			<script src="vendor/datatables/jquery.dataTables.min.js"></script>
+			<script src="vendor/datatables/dataTables.bootstrap4.min.js"></script>
+			
+<script type="module">
 import { rtdb } from './firebase-config.js';
-import { ref as dbRef, query, limitToLast, get, onValue } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js';
+import { ref as dbRef, query, limitToLast, get } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js';
 
 const DEVICE_ID = 'device01';
-const HIST_LIMIT = 20;
+const HIST_LIMIT = 50;
 const REF_PATH = `devices/${DEVICE_ID}/sensors`;
 const REF = dbRef(rtdb, REF_PATH);
 
 const chartCtx = document.getElementById('myTemperatureChart').getContext('2d');
 window.chartTemp = new Chart(chartCtx, {
-    type: 'line',
-    data: { labels: [], datasets: [{ label: 'Temperature', data: [], lineTension: 0.3, backgroundColor: 'rgba(255,99,132,0.05)', borderColor: 'rgba(255,99,132,1)', pointRadius: 3, pointHitRadius: 10 }] },
-    options: {
-        maintainAspectRatio: false,
-        layout: { padding: { left: 10, right: 25, top: 25, bottom: 0 } },
-        scales: {
-            xAxes: [{ gridLines: { display: false } }],
-            yAxes: [{ ticks: { maxTicksLimit: 7, padding: 10, callback: (v) => (v + '°C') }, gridLines: { color: 'rgb(234,236,244)', zeroLineColor: 'rgb(234,236,244)', drawBorder: false, borderDash: [2], zeroLineBorderDash: [2] } }]
-        },
-        legend: { display: false }
-    }
+  type: 'line',
+  data: { labels: [], datasets: [{ label: 'Temperature', data: [], lineTension: 0.3, backgroundColor: 'rgba(255,99,132,0.05)', borderColor: 'rgba(255,99,132,1)', pointRadius: 3, pointHitRadius: 10 }] },
+  options: {
+    maintainAspectRatio: false,
+    layout: { padding: { left: 10, right: 25, top: 25, bottom: 0 } },
+    scales: {
+      xAxes: [{ gridLines: { display: false } }],
+      yAxes: [{
+        ticks: { maxTicksLimit: 7, padding: 10, callback: (v) => v + '°C' },
+        gridLines: { color: 'rgb(234,236,244)', zeroLineColor: 'rgb(234,236,244)', drawBorder: false, borderDash: [2], zeroLineBorderDash: [2] }
+      }]
+    },
+    legend: { display: false }
+  }
 });
 
+const tableBody = document.querySelector('#temperatureTable tbody');
+let temperatureDataTable = null;
+
 function sampleTimestampMs(s) {
-    if (!s) return Date.now();
-    if (s.ts_iso) {
-        const parsed = Date.parse(s.ts_iso);
-        if (!Number.isNaN(parsed)) return parsed;
-    }
-    if (s.timestamp_ms || s.timestamp_ms === 0) {
-        const v = Number(s.timestamp_ms);
-        return (v > 1e11) ? v : (v > 1e9 ? v : v * 1000);
-    }
-    if (s.timestamp || s.timestamp === 0) return Number(s.timestamp) * 1000;
-    return Date.now();
+  if (!s) return Date.now();
+  if (s.ts_iso) {
+    const parsed = Date.parse(s.ts_iso);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  if (s.timestamp_ms !== undefined) {
+    const v = Number(s.timestamp_ms);
+    return (v > 1e11) ? v : (v > 1e9 ? v : v * 1000);
+  }
+  if (s.timestamp !== undefined) return Number(s.timestamp) * 1000;
+  return Date.now();
 }
 
-const tableBody = document.querySelector('#temperatureTable tbody');
-
-// Function to render the table rows
 function renderTable(labels, temps) {
-    tableBody.innerHTML = '';
-    for (let i = 0; i < labels.length; ++i) {
-        const row = document.createElement('tr');
-        const tsCell = document.createElement('td');
-        tsCell.textContent = labels[i];
-        const tempCell = document.createElement('td');
-        tempCell.textContent = (temps[i] !== null && temps[i] !== undefined) ? temps[i].toFixed(2) : '—';
-        row.appendChild(tsCell);
-        row.appendChild(tempCell);
-        tableBody.appendChild(row);
-    }
+  tableBody.innerHTML = '';
+  for (let i = 0; i < labels.length; i++) {
+    const tr = document.createElement('tr');
+    const tdTime = document.createElement('td');
+    const tdTemp = document.createElement('td');
+    tdTime.textContent = labels[i];
+    tdTemp.textContent = (temps[i] !== null && temps[i] !== undefined) ? temps[i].toFixed(2) : '—';
+    tr.appendChild(tdTime);
+    tr.appendChild(tdTemp);
+    tableBody.appendChild(tr);
+  }
+
+  // Initialize or refresh DataTable with pagination (10 per page)
+  if ($.fn.DataTable.isDataTable('#temperatureTable')) {
+    temperatureDataTable.destroy();
+  }
+  temperatureDataTable = $('#temperatureTable').DataTable({
+    pageLength: 10,
+    lengthChange: false,
+    searching: false,
+    ordering: true,
+    info: false,
+    paging: true,
+    order: [[0, 'desc']]  // NEWEST FIRST
+  });
 }
 
 async function refreshTemperatureData() {
-    try {
-        const q = query(REF, limitToLast(HIST_LIMIT));
-        const snap = await get(q);
-        if (!snap.exists()) return;
-        const obj = snap.val();
-        const arr = Object.entries(obj).map(([k, v]) => ({ key: k, ...(v || {}) }));
-        arr.sort((a, b) => sampleTimestampMs(a) - sampleTimestampMs(b));
+  try {
+    const q = query(REF, limitToLast(HIST_LIMIT));
+    const snap = await get(q);
+    if (!snap.exists()) return;
+    const obj = snap.val();
+    const arr = Object.entries(obj).map(([k, v]) => ({ key: k, ...(v || {}) }));
+    arr.sort((a, b) => sampleTimestampMs(a) - sampleTimestampMs(b));
 
-        const labels = arr.map(s => new Date(sampleTimestampMs(s)).toLocaleString());
-        const temps = arr.map(s => (typeof s.temperature === 'number') ? s.temperature : null);
+    const labels = arr.map(s => new Date(sampleTimestampMs(s)).toLocaleString());
+    const temps = arr.map(s => (typeof s.temperature === 'number') ? s.temperature : null);
 
-        chartTemp.data.labels = labels.slice();
-        chartTemp.data.datasets[0].data = temps.slice();
-        chartTemp.update();
+    chartTemp.data.labels = labels.slice();
+    chartTemp.data.datasets[0].data = temps.slice();
+    chartTemp.update();
 
-        renderTable(labels, temps);
-    } catch (e) {
-        tableBody.innerHTML = '<tr><td colspan="2">Error loading data</td></tr>';
-    }
+    renderTable(labels, temps);
+
+  } catch (e) {
+    tableBody.innerHTML = '<tr><td colspan="2">Error loading data</td></tr>';
+  }
 }
 
 // Initial load
@@ -581,8 +605,8 @@ document.getElementById('generateReportBtn').addEventListener('click', event => 
   y += 15;
 
   // Prepare table data from chart
-  let labels = window.chartTemp?.data.labels || [];
-  let temps = window.chartTemp?.data.datasets[0].data || [];
+  let labels = (window.chartTemp?.data.labels || []).slice().reverse(); // reverse order
+  let temps = (window.chartTemp?.data.datasets[0].data || []).slice().reverse();  // reverse order
 
   const rowCount = Math.min(labels.length, 50);
   const rows = [];

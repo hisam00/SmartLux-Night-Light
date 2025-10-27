@@ -14,6 +14,8 @@
     <!-- Custom styles for this template-->
     <link href="css/sb-admin-2.min.css" rel="stylesheet" />
     
+	<link href="vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet" />
+	
     <style>
 
 .sidebar-logo-img {
@@ -70,7 +72,7 @@
 			 <!-- Nav Item - Control -->
 			<li class="nav-item active">
 				<a class="nav-link" href="humidity.html">
-					<i class="fas fa-fw fa-solid fa-water"></i>
+					<i class="fas fa-fw fa-solid fa-tint"></i>
 					<span>Humidity</span>
 				</a>
 			</li>
@@ -314,12 +316,17 @@
             <script src="vendor/jquery-easing/jquery.easing.min.js"></script>
             <script src="js/sb-admin-2.min.js"></script>
             <script src="vendor/chart.js/Chart.min.js"></script>
+			
+			<script src="vendor/datatables/jquery.dataTables.min.js"></script>
+			<script src="vendor/datatables/dataTables.bootstrap4.min.js"></script>
+			
+			
            <script type="module">
     import { rtdb } from './firebase-config.js';
     import { ref as dbRef, query, limitToLast, get, onValue } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js';
 
     const DEVICE_ID = 'device01';   // change as needed
-    const HIST_LIMIT = 20;          // number of readings on chart and table
+    const HIST_LIMIT = 50;          // number of readings on chart and table
     const REF_PATH = `devices/${DEVICE_ID}/sensors`;
     const REF = dbRef(rtdb, REF_PATH);
 
@@ -357,19 +364,34 @@
     const tableBody = document.querySelector('#humidityTable tbody');
 
     // Update table content from labels and humidity data arrays
-    function renderTable(labels, hums) {
-        tableBody.innerHTML = '';
-        for (let i = 0; i < labels.length; ++i) {
-            const row = document.createElement('tr');
-            const tsCell = document.createElement('td');
-            tsCell.textContent = labels[i];
-            const humCell = document.createElement('td');
-            humCell.textContent = (hums[i] !== null && hums[i] !== undefined) ? hums[i].toFixed(2) : '—';
-            row.appendChild(tsCell);
-            row.appendChild(humCell);
-            tableBody.appendChild(row);
-        }
-    }
+    let humidityDataTable = null;
+
+function renderTable(labels, hums) {
+  tableBody.innerHTML = '';
+  for (let i = 0; i < labels.length; i++) {
+    const tr = document.createElement('tr');
+    const tdTime = document.createElement('td');
+    const tdHum = document.createElement('td');
+    tdTime.textContent = labels[i];
+    tdHum.textContent = (hums[i] !== null && hums[i] !== undefined) ? hums[i].toFixed(2) : '—';
+    tr.appendChild(tdTime);
+    tr.appendChild(tdHum);
+    tableBody.appendChild(tr);
+  }
+
+  if ($.fn.DataTable.isDataTable('#humidityTable')) {
+    humidityDataTable.destroy();
+  }
+  humidityDataTable = $('#humidityTable').DataTable({
+    pageLength: 10,
+    lengthChange: false,
+    searching: false,
+    ordering: true,
+    info: false,
+    paging: true,
+    order: [[0, 'desc']]  // sort Timestamp latest first
+  });
+}
 
     // Fetch initial historical data and render chart and table
     async function refreshHumidityData() {
@@ -584,8 +606,8 @@ document.getElementById('generateReportBtn').addEventListener('click', event => 
   doc.text(`Report generated on: ${now.toLocaleString()}`, margin, y);
   y += 15;
 
-  let labels = window.chartHum?.data.labels || [];
-  let hums = window.chartHum?.data.datasets[0].data || [];
+  let labels = (window.chartHum?.data.labels || []).slice().reverse();  // reverse order
+  let hums = (window.chartHum?.data.datasets[0].data || []).slice().reverse();  // reverse order
 
   const rowCount = Math.min(labels.length, 50);
   const rows = [];

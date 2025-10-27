@@ -14,6 +14,8 @@
     <!-- Custom styles for this template-->
     <link href="css/sb-admin-2.min.css" rel="stylesheet" />
     
+	<link href="vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet" />
+	
     <style>
 
 .sidebar-logo-img {
@@ -70,7 +72,7 @@
 			 <!-- Nav Item - Control -->
 			<li class="nav-item">
 				<a class="nav-link" href="humidity.html">
-					<i class="fas fa-fw fa-solid fa-water"></i>
+					<i class="fas fa-fw fa-solid fa-tint"></i>
 					<span>Humidity</span>
 				</a>
 			</li>
@@ -312,12 +314,17 @@
             <script src="vendor/jquery-easing/jquery.easing.min.js"></script>
             <script src="js/sb-admin-2.min.js"></script>
             <script src="vendor/chart.js/Chart.min.js"></script>
-           <script type="module">
+
+			<script src="vendor/datatables/jquery.dataTables.min.js"></script>
+			<script src="vendor/datatables/dataTables.bootstrap4.min.js"></script>
+
+
+<script type="module">
   import { rtdb } from './firebase-config.js';
   import { ref as dbRef, query, limitToLast, get, onValue } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js';
 
   const DEVICE_ID = 'device01';
-  const HIST_LIMIT = 20;
+  const HIST_LIMIT = 50;
   const REF_PATH = `devices/${DEVICE_ID}/sensors`;
   const REF = dbRef(rtdb, REF_PATH);
 
@@ -378,10 +385,11 @@
     return Date.now();
   }
 
-  const tableBody = document.querySelector('#lightTable tbody');
+  const lightTableBody = document.querySelector('#lightTable tbody');
+  let lightDataTable = null;
 
   function renderTable(labels, ldrs) {
-    tableBody.innerHTML = '';
+    lightTableBody.innerHTML = '';
     for (let i = 0; i < labels.length; ++i) {
       const row = document.createElement('tr');
       const tsCell = document.createElement('td');
@@ -390,8 +398,21 @@
       ldrCell.textContent = (ldrs[i] !== null && ldrs[i] !== undefined) ? ldrs[i].toFixed(2) : '—';
       row.appendChild(tsCell);
       row.appendChild(ldrCell);
-      tableBody.appendChild(row);
+      lightTableBody.appendChild(row);
     }
+
+    if ($.fn.DataTable.isDataTable('#lightTable')) {
+      lightDataTable.destroy();
+    }
+    lightDataTable = $('#lightTable').DataTable({
+      pageLength: 10,
+      lengthChange: false,
+      searching: false,
+      ordering: true,
+      info: false,
+      paging: true,
+      order: [[0, 'desc']]  // newest timestamps first
+    });
   }
 
   async function refreshLightData() {
@@ -409,7 +430,7 @@
       chartLight.update();
       renderTable(labels, ldrs);
     } catch (e) {
-      tableBody.innerHTML = '<tr><td colspan="2">Error loading data</td></tr>';
+      lightTableBody.innerHTML = '<tr><td colspan="2">Error loading data</td></tr>';
     }
   }
 
@@ -595,8 +616,8 @@ document.getElementById('generateReportBtn').addEventListener('click', () => {
   y += 15;
 
   // Prepare data
-  const labels = window.chartLight?.data.labels || [];
-  const lights = window.chartLight?.data.datasets[0].data || [];
+  const labels = (window.chartLight?.data.labels || []).slice().reverse();  // reverse order
+  const lights = (window.chartLight?.data.datasets[0].data || []).slice().reverse();  // reverse order
 
   const rows = [];
   for (let i = 0; i < Math.min(labels.length, 50); i++) {

@@ -14,6 +14,8 @@
     <!-- Custom styles for this template-->
     <link href="css/sb-admin-2.min.css" rel="stylesheet" />
     
+	<link href="vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet" />
+	
     <style>
 
 .sidebar-logo-img {
@@ -70,7 +72,7 @@
 			 <!-- Nav Item - Control -->
 			<li class="nav-item">
 				<a class="nav-link" href="humidity.html">
-					<i class="fas fa-fw fa-solid fa-water"></i>
+					<i class="fas fa-fw fa-solid fa-tint"></i>
 					<span>Humidity</span>
 				</a>
 			</li>
@@ -313,12 +315,16 @@
             <script src="vendor/jquery-easing/jquery.easing.min.js"></script>
             <script src="js/sb-admin-2.min.js"></script>
             <script src="vendor/chart.js/Chart.min.js"></script>
-           <script type="module">
+
+			<script src="vendor/datatables/jquery.dataTables.min.js"></script>
+			<script src="vendor/datatables/dataTables.bootstrap4.min.js"></script>
+
+<script type="module">
   import { rtdb } from './firebase-config.js';
   import { ref as dbRef, query, limitToLast, get, onValue } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js';
 
   const DEVICE_ID = 'device01';
-  const HIST_LIMIT = 20;
+  const HIST_LIMIT = 50;
   const REF_PATH = `devices/${DEVICE_ID}/sensors`;
   const REF = dbRef(rtdb, REF_PATH);
 
@@ -383,10 +389,11 @@
     return Date.now();
   }
 
-  const tableBody = document.querySelector('#motionTable tbody');
+  const motionTableBody = document.querySelector('#motionTable tbody');
+  let motionDataTable = null;
 
   function renderTable(labels, motions) {
-    tableBody.innerHTML = '';
+    motionTableBody.innerHTML = '';
     for (let i = 0; i < labels.length; ++i) {
       const row = document.createElement('tr');
       const tsCell = document.createElement('td');
@@ -395,8 +402,21 @@
       motionCell.textContent = (motions[i] !== null && motions[i] !== undefined) ? motions[i] : '—';
       row.appendChild(tsCell);
       row.appendChild(motionCell);
-      tableBody.appendChild(row);
+      motionTableBody.appendChild(row);
     }
+
+    if ($.fn.DataTable.isDataTable('#motionTable')) {
+      motionDataTable.destroy();
+    }
+    motionDataTable = $('#motionTable').DataTable({
+      pageLength: 10,
+      lengthChange: false,
+      searching: false,
+      ordering: true,
+      info: false,
+      paging: true,
+      order: [[0, 'desc']] // sorts timestamp descending at start
+    });
   }
 
   async function refreshMotionData() {
@@ -416,7 +436,7 @@
 
       renderTable(labels, motions);
     } catch (e) {
-      tableBody.innerHTML = '<tr><td colspan="2">Error loading data</td></tr>';
+      motionTableBody.innerHTML = '<tr><td colspan="2">Error loading data</td></tr>';
     }
   }
 
@@ -607,8 +627,8 @@ document.getElementById('generateReportBtn').addEventListener('click', event => 
   y += 15;
 
   // Prepare table data from chartMotion
-  let labels = window.chartMotion?.data.labels || [];
-  let motions = window.chartMotion?.data.datasets[0].data || [];
+  let labels = (window.chartMotion?.data.labels || []).slice().reverse();  // reverse order
+  let motions = (window.chartMotion?.data.datasets[0].data || []).slice().reverse();  // reverse order
 
   const rowCount = Math.min(labels.length, 50);
   const rows = [];
