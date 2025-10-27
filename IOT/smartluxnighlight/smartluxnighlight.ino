@@ -378,6 +378,12 @@ void notifyTask(void* pvParameters) {
         continue;
       }
 
+      // Force HTTPS if the URL is HTTP (since the server is HTTPS-only)
+      if (targetUrl.startsWith("http://")) {
+        targetUrl = "https://" + targetUrl.substring(7);
+        Serial.printf("[notifyTask] Forced HTTPS: %s\n", targetUrl.c_str());
+      }
+
       // Build payload
       StaticJsonDocument<256> doc;
       doc["device"] = DEVICE_ID;
