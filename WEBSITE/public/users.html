@@ -453,7 +453,7 @@
       }
 
       try {
-        const response = await fetch('http://localhost:3000/api/createUser', {
+        const response = await fetch('https://smartlux-night-light-backend.onrender.com/api/createUser', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username, firstName, lastName, email, role, password }),
@@ -497,7 +497,7 @@ $('#formEditUser').submit(async function (e) {
 
   try {
     // Call backend to update Firebase Auth (email/displayName) AND Firestore user doc
-    const response = await fetch('http://localhost:3000/api/updateUser', {
+    const response = await fetch('https://smartlux-night-light-backend.onrender.com/api/updateUser', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -519,7 +519,7 @@ $('#formEditUser').submit(async function (e) {
     // If password supplied, call password endpoint (unchanged)
     if (password) {
       try {
-        const pwResp = await fetch('http://localhost:3000/api/updateUserPassword', {
+        const pwResp = await fetch('https://smartlux-night-light-backend.onrender.com/api/updateUserPassword', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ uid: userId, newPassword: password }),
@@ -567,7 +567,7 @@ $('#usersTable tbody').on('click', 'button.delete-btn', async function () {
 
   if (confirm('Are you sure you want to delete this user? This will remove the account from both Auth and Firestore.')) {
     try {
-      const resp = await fetch('http://localhost:3000/api/deleteUser', {
+      const resp = await fetch('https://smartlux-night-light-backend.onrender.com/api/deleteUser', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ uid: userId }),
