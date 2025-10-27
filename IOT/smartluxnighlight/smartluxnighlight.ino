@@ -27,6 +27,8 @@ const float hotThreshold   = 33.0;
 const unsigned long motionTimeout = 60000; // milisecond tips 1 min = 60000 mili
 const unsigned long dhtInterval = 2000;    // ms
 const unsigned long sendInterval = 10000;  // ms
+const unsigned long debounceDelay = 50;    // ms
+const unsigned long highTempDebounce = 60000; // ms
 
 // WiFi / Firebase
 const char* WIFI_SSID     = "secret";
@@ -40,6 +42,7 @@ const char* FIREBASE_DATABASE_URL = "https://smartlux-night-light-default-rtdb.a
 // ISR-shared state
 volatile bool motionTriggeredISR = false;
 volatile unsigned long lastMotionTime = 0;
+volatile unsigned long lastTriggerTime = 0;
 bool ledsActive = false;
 
 // Remote override state
@@ -108,9 +111,13 @@ void controlTask(void* pvParameters);
 
 // ISR for motion (RISING)
 void IRAM_ATTR motionISR() {
-  motionTriggeredISR = true;
   TickType_t t = xTaskGetTickCountFromISR();
-  lastMotionTime = (unsigned long)t * portTICK_PERIOD_MS;
+  unsigned long now = (unsigned long)t * portTICK_PERIOD_MS;
+  if (now - lastTriggerTime >= debounceDelay) {
+    motionTriggeredISR = true;
+    lastMotionTime = now;
+    lastTriggerTime = now;
+  }
 }
 
 void setup() {
@@ -154,7 +161,7 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(motionSensorPin), motionISR, RISING);
 
   // NTP
-  configTime(0, 0, "pool.ntp.org", "time.google.com");
+  configTime(0, 0, "pool.ntp.org", "time.google.com", "time.cloudflare.com");
   Serial.println("Waiting for NTP time sync (up to 10s)...");
   time_t now = time(nullptr);
   unsigned long start = millis();
@@ -182,13 +189,21 @@ void loop() {
 
   // motion: check ISR flag first, fallback to polling
   bool motionDetected = false;
+  static unsigned long lastPollTrigger = 0;
+  static bool lastPollState = LOW;
+
   if (motionTriggeredISR) {
     motionTriggeredISR = false; // clear flag
     motionDetected = true;
     // lastMotionTime updated in ISR
   } else {
-    motionDetected = (digitalRead(motionSensorPin) == HIGH);
-    if (motionDetected) lastMotionTime = millis();
+    bool current = digitalRead(motionSensorPin);
+    if (current == HIGH && lastPollState == LOW && millis() - lastPollTrigger >= debounceDelay) {
+      motionDetected = true;
+      lastMotionTime = millis();
+      lastPollTrigger = millis();
+    }
+    lastPollState = current;
   }
 
   // update ledsActive based on timeout
@@ -270,9 +285,10 @@ void loop() {
   }
 
   // If DHT read just happened and temperature > threshold: push immediate high-temp event
+  static unsigned long lastHighTempTrigger = 0;
   if (didDhtRead && !isnan(temperature)) {
     float threshold = notifyCfg.high_temp_threshold;
-    if (temperature > threshold) {
+    if (temperature > threshold && nowMs - lastHighTempTrigger >= highTempDebounce) {
       NotifyEvent ev;
       time_t nowt = time(nullptr);
       ev.epoch_ms = (nowt > 0) ? (unsigned long)nowt * 1000UL : millis();
@@ -280,6 +296,7 @@ void loop() {
       ev.ldr = lightValue;
       ev.temperature = temperature;
       if (notifyQueue) xQueueSend(notifyQueue, &ev, 0);
+      lastHighTempTrigger = nowMs;
     }
   }
 
@@ -326,14 +343,18 @@ bool enqueueSensorData(int ldr, bool motion, float hum, float temp) {
 
 // Notify task: processes NotifyEvents immediately and calls webhook URLs
 void notifyTask(void* pvParameters) {
-  WiFiClient *client = new WiFiClient();
+  WiFiClientSecure *client = new WiFiClientSecure();
+  client->setInsecure(); // For testing; consider proper certificates in production
   HTTPClient http;
 
+  // Set timeouts (already increased, but confirming)
+  http.setConnectTimeout(60000); // 60s for connection
+  http.setTimeout(60000);       // 60s for response
 
   for (;;) {
     NotifyEvent ev;
     if (xQueueReceive(notifyQueue, &ev, portMAX_DELAY) == pdTRUE) {
-      // Only proceed if notify is enabled (option != "none") and URL present
+      // Skip if notifications disabled or no URL
       if (notifyCfg.option == "none") {
         Serial.println("[notifyTask] notify.option == none, skipping event.");
         continue;
@@ -344,49 +365,83 @@ void notifyTask(void* pvParameters) {
       else if (ev.type == EVT_HIGH_TEMP) targetUrl = notifyCfg.temp_url;
 
       if (targetUrl.length() == 0) {
-        Serial.println("[notifyTask] No target URL configured for this event, skipping.");
+        Serial.println("[notifyTask] No target URL configured, skipping.");
         continue;
       }
 
       // Build payload
-      char payload[256];
+      StaticJsonDocument<256> doc;
+      doc["device"] = DEVICE_ID;
+      doc["event"] = (ev.type == EVT_MOTION) ? "motion" : "high_temperature";
+      doc["timestamp_ms"] = ev.epoch_ms;
       if (ev.type == EVT_MOTION) {
-        if (isnan(ev.temperature)) {
-          snprintf(payload, sizeof(payload),
-            "{\"device\":\"%s\",\"event\":\"motion\",\"timestamp_ms\":%lu,\"ldr\":%d}",
-            DEVICE_ID, ev.epoch_ms, ev.ldr);
-        } else {
-          snprintf(payload, sizeof(payload),
-            "{\"device\":\"%s\",\"event\":\"motion\",\"timestamp_ms\":%lu,\"ldr\":%d,\"temperature\":%.2f}",
-            DEVICE_ID, ev.epoch_ms, ev.ldr, ev.temperature);
-        }
+        doc["ldr"] = ev.ldr;
+        if (!isnan(ev.temperature)) doc["temperature"] = ev.temperature;
       } else {
-        snprintf(payload, sizeof(payload),
-          "{\"device\":\"%s\",\"event\":\"high_temperature\",\"timestamp_ms\":%lu,\"temperature\":%.2f,\"threshold\":%.2f}",
-          DEVICE_ID, ev.epoch_ms, ev.temperature, notifyCfg.high_temp_threshold);
+        doc["temperature"] = ev.temperature;
+        doc["threshold"] = notifyCfg.high_temp_threshold;
       }
 
-      Serial.print("[notifyTask] POST -> ");
-      Serial.println(targetUrl);
-      Serial.println(payload);
+      String payload;
+      serializeJson(doc, payload);
 
-      if (http.begin(*client, targetUrl)) {
-        http.addHeader("Content-Type", "application/json");
-        int httpCode = http.POST(String(payload));
-        if (httpCode > 0) {
-          Serial.printf("[notifyTask] HTTP %d\n", httpCode);
-          String resp = http.getString();
-          Serial.println(resp);
-        } else {
-          Serial.printf("[notifyTask] POST failed: %s\n", http.errorToString(httpCode).c_str());
-        }
-        http.end();
-      } else {
-        Serial.println("[notifyTask] begin failed (notify)");
+      Serial.printf("[notifyTask] POST -> %s\n", targetUrl.c_str());
+      Serial.printf("[notifyTask] Payload: %s\n", payload.c_str());
+      Serial.printf("[notifyTask] Payload length: %d bytes\n", payload.length());
+
+      // Ensure WiFi is connected
+      if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("[notifyTask] WiFi disconnected, attempting reconnect...");
+        connectWiFi();
       }
 
+      // Initialize HTTP client
+      bool success = false;
+      const int maxRetries = 3;
+      for (int retry = 0; retry < maxRetries; ++retry) {
+        if (http.begin(*client, targetUrl)) {
+          http.addHeader("Content-Type", "application/json");
+          http.addHeader("Content-Length", String(payload.length())); // Explicitly set Content-Length
+          http.addHeader("Connection", "close"); // Ensure connection closes after request
 
-      vTaskDelay(10 / portTICK_PERIOD_MS);
+          // Attempt POST
+          int httpCode = http.POST(payload);
+          if (httpCode > 0) {
+            Serial.printf("[notifyTask] HTTP %d\n", httpCode);
+            String resp = http.getString();
+            Serial.printf("[notifyTask] Response: %s\n", resp.c_str());
+            success = true;
+          } else {
+            Serial.printf("[notifyTask] POST failed: %s (retry %d/%d)\n", http.errorToString(httpCode).c_str(), retry + 1, maxRetries);
+            // Additional debug info
+            Serial.printf("[notifyTask] WiFi status: %d\n", WiFi.status());
+            Serial.printf("[notifyTask] Free heap: %d bytes\n", ESP.getFreeHeap());
+          }
+          http.end();
+          if (success) break;
+        } else {
+          Serial.printf("[notifyTask] HTTP begin failed (retry %d/%d)\n", retry + 1, maxRetries);
+          // Debug connection failure
+          if (!client->connect(targetUrl.substring(8).c_str(), 443)) { // Skip https://
+            Serial.println("[notifyTask] Direct connect to server failed");
+          } else {
+            Serial.println("[notifyTask] Direct connect succeeded, issue with HTTP setup");
+            client->stop();
+          }
+        }
+        vTaskDelay(5000 * (retry + 1) / portTICK_PERIOD_MS); // Backoff: 5s, 10s, 15s
+      }
+
+      if (!success) {
+        Serial.println("[notifyTask] All retries failed for this event.");
+      }
+
+      // Cleanup to free memory
+      doc.clear();
+      payload = "";
+
+      // Delay to prevent tight loop on failure
+      vTaskDelay(100 / portTICK_PERIOD_MS); // 100ms delay
     }
   }
 

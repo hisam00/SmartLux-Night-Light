@@ -11,7 +11,39 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: npm ci && npm run build
+
+      # ------------------------------------------------------------------
+      # 🔥 FIX FOR NODE-SASS COMPILATION ERROR 🔥
+      # node-sass/node-gyp often fails on modern runners (Node 20, Python 3).
+      # This step forces it to use a compatible version of Python.
+      # ------------------------------------------------------------------
+      - name: Setup Node.js (Recommended to use 18 for stability)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18' # Downgrade to 18 for better node-sass stability
+
+      - name: Setup Python 2 for node-gyp
+        uses: actions/setup-python@v5
+        with:
+          python-version: '2.7'
+          
+      - name: Set npm config to use Python 2
+        run: npm config set python /usr/bin/python2.7
+        # IMPORTANT: Run this command in the same directory context as npm ci
+        working-directory: WEBSITE/public
+      # ------------------------------------------------------------------
+
+      # 1. Install dependencies (npm ci)
+      - name: Install Dependencies in Public Folder
+        run: npm ci
+        working-directory: WEBSITE/public
+
+      # 2. Build the project (npm run build)
+      - name: Build Project in Public Folder
+        run: npm run build
+        working-directory: WEBSITE/public
+
+      # 3. Deploy to Firebase Hosting
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
