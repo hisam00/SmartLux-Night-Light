@@ -146,6 +146,13 @@
     const isTempAdminCredentials = (email === "admin@admin" && password === "admin");
     if (isTempAdminCredentials) {
       try {
+        // Check if any users exist by reading the public user_count metadata doc
+        const countRef = doc(db, 'metadata', 'user_count');
+        const countSnap = await getDoc(countRef);
+        if (countSnap.exists() && (countSnap.data().count || 0) > 0) {
+          alert("Temporary admin login is only available when no users exist.");
+          return;
+        }
         await signInAnonymously(auth);
         // Intentionally do NOT increment login count for temp admin
         window.location.href = "dashboardadmin.html";

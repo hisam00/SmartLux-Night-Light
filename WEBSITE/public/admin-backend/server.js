@@ -68,6 +68,15 @@ app.post('/api/createUser', async (req, res) => {
     await firestore.collection('users').doc(userRecord.uid).set({
       username, firstName, lastName, email, role, createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
+
+    // New: Increment user count atomically
+    const countRef = firestore.doc('metadata/user_count');
+    await firestore.runTransaction(async (transaction) => {
+      const countSnap = await transaction.get(countRef);
+      const currentCount = countSnap.exists ? countSnap.data().count || 0 : 0;
+      transaction.set(countRef, { count: currentCount + 1 }, { merge: true });
+    });
+
     res.status(201).json({ uid: userRecord.uid, message: "User created!" });
   } catch (error) {
     console.error("Create User Error:", error);
@@ -158,6 +167,18 @@ app.post('/api/deleteUser', async (req, res) => {
       }
       return res.status(500).json({ error: 'Failed to delete Firestore doc: ' + fsErr.message });
     }
+
+    // New: Decrement user count atomically (only if Firestore delete succeeded)
+    const countRef = firestore.doc('metadata/user_count');
+    await firestore.runTransaction(async (transaction) => {
+      const countSnap = await transaction.get(countRef);
+      if (countSnap.exists) {
+        const currentCount = countSnap.data().count || 0;
+        if (currentCount > 0) {
+          transaction.update(countRef, { count: currentCount - 1 });
+        }
+      }
+    });
 
     res.status(200).json({ message: 'User deleted from Auth and Firestore (if present).' });
   } catch (error) {
