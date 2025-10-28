@@ -539,17 +539,14 @@
 			<!--PDF-->
 			
 <script type="module">
-
 import { rtdb } from './firebase-config.js';
 import { ref as dbRef, query, limitToLast, get, onValue } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js';
 
-const DEVICE_ID = 'device01';   // change as needed
-const HIST_LIMIT = 120;         // items to fetch on full history load
-const LIVE_LIMIT = 60;          // how many recent items to keep in-memory for live updates
+const DEVICE_ID = 'device01';
+const SAMPLE_LIMIT = 120;
 const REF_PATH = `devices/${DEVICE_ID}/sensors`;
 const REF = dbRef(rtdb, REF_PATH);
 
-// Chart canvases (cached once)
 const ctxTemp = document.getElementById('myAreaChart1').getContext('2d');
 const ctxHum  = document.getElementById('myAreaChart2').getContext('2d');
 const ctxMotion = document.getElementById('myBarChartMotion').getContext('2d');
@@ -594,221 +591,213 @@ window.chartHum  = createLineChart(ctxHum,  'Humidity', '%', 'rgba(54,162,235,1)
 window.chartLdr  = createLineChart(ctxLdr,  'Light', ' lx', 'rgba(75,192,192,1)', 'rgba(75,192,192,0.05)');
 window.chartMotion = createBarChart(ctxMotion, 'Motion', ' times', 'rgba(255,206,86,0.7)', 'rgba(255,206,86,1)');
 
-
-// in-memory arrays we maintain incrementally (avoids heavy re-parsing of entire snapshots)
-let labels = [];
-let temps = [];
-let hums = [];
-let ldrs = [];
-let motions = [];
-let lastTsMs = 0; // timestamp (ms) of newest sample we've processed
-
-// quick utility to parse timestamps efficiently
-function sampleTimestampMs(s) {
-  if (!s) return Date.now();
-  if (s.ts_iso) {
-    const parsed = Date.parse(s.ts_iso);
-    if (!Number.isNaN(parsed)) return parsed;
-  }
-  if (s.timestamp_ms || s.timestamp_ms === 0) {
-    const v = Number(s.timestamp_ms);
-    return (v > 1e11) ? v : (v > 1e9 ? v : v * 1000);
-  }
-  if (s.timestamp || s.timestamp === 0) return Number(s.timestamp) * 1000;
-  return Date.now();
-}
-
-function pushSampleToBuffers(s) {
-  const ts = sampleTimestampMs(s);
-  if (ts <= lastTsMs) return false; // not newer
-  lastTsMs = ts;
-  const d = new Date(ts);
-  labels.push(d.toLocaleString());
-  temps.push((typeof s.temperature === 'number') ? s.temperature : null);
-  hums.push((typeof s.humidity === 'number') ? s.humidity : null);
-  ldrs.push((typeof s.ldr === 'number') ? s.ldr : null);
-  motions.push(s.motion ? 1 : 0);
-
-  // enforce HIST_LIMIT cap
-  while (labels.length > HIST_LIMIT) { labels.shift(); temps.shift(); hums.shift(); ldrs.shift(); motions.shift(); }
-  return true;
-}
-
-// Batch updates using requestAnimationFrame so multiple incoming samples render once
-let rafScheduled = false;
-function scheduleRender() {
-  if (rafScheduled) return;
-  rafScheduled = true;
-  requestAnimationFrame(() => {
-    rafScheduled = false;
-    chartTemp.data.labels = labels.slice();
-    chartTemp.data.datasets[0].data = temps.slice();
-    chartTemp.update();
-
-    chartHum.data.labels = labels.slice();
-    chartHum.data.datasets[0].data = hums.slice();
-    chartHum.update();
-
-    chartLdr.data.labels = labels.slice();
-    chartLdr.data.datasets[0].data = ldrs.slice();
-    chartLdr.update();
-
-    chartMotion.data.labels = labels.slice();
-    chartMotion.data.datasets[0].data = motions.slice();
-    chartMotion.update();
-  });
-}
-
-// localStorage caching (debounced)
-const LS_KEY = `sl_cache_${DEVICE_ID}`;
-let saveTimeout = null;
-function saveCacheDebounced() {
-  if (saveTimeout) clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(() => {
-    try {
-      const payload = { labels, temps, hums, ldrs, motions, lastTsMs };
-      localStorage.setItem(LS_KEY, JSON.stringify(payload));
-    } catch (e) { /* ignore storage errors */ }
-  }, 2000);
-}
-
-function loadCacheAndRender() {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return false;
-    const obj = JSON.parse(raw);
-    if (!obj || !obj.labels || obj.labels.length === 0) return false;
-    labels = obj.labels.slice(-HIST_LIMIT);
-    temps  = (obj.temps || []).slice(-HIST_LIMIT);
-    hums   = (obj.hums  || []).slice(-HIST_LIMIT);
-    ldrs   = (obj.ldrs  || []).slice(-HIST_LIMIT);
-    motions= (obj.motions|| []).slice(-HIST_LIMIT);
-    lastTsMs = obj.lastTsMs || 0;
-
-    // immediate render from cache
-    chartTemp.data.labels = labels.slice(); chartTemp.data.datasets[0].data = temps.slice(); chartTemp.update();
-    chartHum.data.labels = labels.slice(); chartHum.data.datasets[0].data = hums.slice(); chartHum.update();
-    chartLdr.data.labels = labels.slice(); chartLdr.data.datasets[0].data = ldrs.slice(); chartLdr.update();
-    chartMotion.data.labels = labels.slice(); chartMotion.data.datasets[0].data = motions.slice(); chartMotion.update();
-    return true;
-  } catch (e) { return false; }
-}
-
-async function fetchInitialHistory() {
-  try {
-    // use push-key order: limitToLast -> returns most-recently-added push nodes
-    const q = query(REF, limitToLast(HIST_LIMIT));
-    const snap = await get(q);
-    if (!snap.exists()) return [];
-    const obj = snap.val();
-    // convert to sorted array by timestamp (to order correctly in chart)
-    const arr = Object.entries(obj).map(([k,v]) => ({ key:k, ...(v||{}) }));
-    arr.sort((a,b) => sampleTimestampMs(a) - sampleTimestampMs(b));
-    return arr;
-  } catch (err) { console.error('fetchInitialHistory error', err); return []; }
-}
-
-async function refreshChartsOnce() {
-  try {
-    const samples = await fetchInitialHistory();
-    if (!samples || samples.length === 0) return;
-    // reset buffers and fill
-    labels = []; temps = []; hums = []; ldrs = []; motions = [];
-    samples.forEach(s => {
-      const ts = sampleTimestampMs(s);
-      if (ts > lastTsMs) lastTsMs = ts;
-      labels.push(new Date(ts).toLocaleString());
-      temps.push((typeof s.temperature === 'number') ? s.temperature : null);
-      hums.push((typeof s.humidity === 'number') ? s.humidity : null);
-      ldrs.push((typeof s.ldr === 'number') ? s.ldr : null);
-      motions.push(s.motion ? 1 : 0);
+function snapshotToArray(obj) {
+  if (!obj) return [];
+  return Object.entries(obj).map(([key, val]) => ({ key, ...(val || {}) }))
+    .sort((a,b) => {
+      const ta = ('timestamp_ms' in a) ? a.timestamp_ms : (('timestamp' in a) ? a.timestamp * 1000 : 0);
+      const tb = ('timestamp_ms' in b) ? b.timestamp_ms : (('timestamp' in b) ? b.timestamp * 1000 : 0);
+      return ta - tb;
     });
+}
 
-    // cap to HIST_LIMIT (should already be)
-    if (labels.length > HIST_LIMIT) {
-      const start = labels.length - HIST_LIMIT;
-      labels = labels.slice(start);
-      temps = temps.slice(start);
-      hums = hums.slice(start);
-      ldrs = ldrs.slice(start);
-      motions = motions.slice(start);
+function buildSeries(samples) {
+  const labels = [], tempData = [], humData = [], ldrData = [], motionData = [];
+
+  samples.forEach(s => {
+    let tsMs = null;
+    if (s.ts_iso && typeof s.ts_iso === 'string' && s.ts_iso.length >= 10) {
+      const parsed = Date.parse(s.ts_iso);
+      if (!Number.isNaN(parsed)) tsMs = parsed;
+    }
+    if (tsMs === null && (s.timestamp_ms || s.timestamp_ms === 0)) {
+      const v = Number(s.timestamp_ms);
+      tsMs = (v > 1e11) ? v : (v > 1e9 ? v : v * 1000);
+    }
+    if (tsMs === null && (s.timestamp || s.timestamp === 0)) {
+      const v = Number(s.timestamp);
+      tsMs = v * 1000;
+    }
+    if (tsMs === null) tsMs = Date.now();
+    const d = new Date(tsMs);
+    labels.push(d.toLocaleString());
+    tempData.push((typeof s.temperature === 'number') ? s.temperature : null);
+    humData.push((typeof s.humidity === 'number') ? s.humidity : null);
+    ldrData.push((typeof s.ldr === 'number') ? s.ldr : null);
+    motionData.push(s.motion ? 1 : 0);
+  });
+
+  return { labels, tempData, humData, ldrData, motionData };
+}
+
+function updateCharts(series) {
+  chartTemp.data.labels = series.labels;
+  chartTemp.data.datasets[0].data = series.tempData;
+  chartTemp.update();
+
+  chartHum.data.labels = series.labels;
+  chartHum.data.datasets[0].data = series.humData;
+  chartHum.update();
+
+  chartLdr.data.labels = series.labels;
+  chartLdr.data.datasets[0].data = series.ldrData;
+  chartLdr.update();
+
+  chartMotion.data.labels = series.labels;
+  chartMotion.data.datasets[0].data = series.motionData;
+  chartMotion.update();
+}
+
+/* SDK fetch: use limitToLast (order by push-key / insertion order) */
+async function fetchSensorHistorySDK() {
+  try {
+    const q = query(REF, limitToLast(SAMPLE_LIMIT));
+    const snap = await get(q);
+    if (!snap.exists()) {
+      console.log('No sensor data found for', REF_PATH);
+      return [];
+    }
+    const obj = snap.val();
+    const arr = snapshotToArray(obj);
+    return arr;
+  } catch (err) {
+    console.error('fetchSensorHistory (SDK) error:', err);
+    throw err;
+  }
+}
+
+/* REST fallback: orderBy="$key" so we get last push keys */
+async function fetchSensorHistoryREST() {
+  try {
+    const dbUrl = (rtdb && rtdb.app && rtdb.app.options && rtdb.app.options.databaseURL) ? rtdb.app.options.databaseURL : null;
+    if (!dbUrl) throw new Error('Cannot determine databaseURL from firebase app instance.');
+    let base = dbUrl;
+    if (base.endsWith('/')) base = base.slice(0, -1);
+
+    const orderByParam = '%22$key%22'; // "%22$key%22"
+    const url = `${base}/devices/${encodeURIComponent(DEVICE_ID)}/sensors.json?orderBy=${orderByParam}&limitToLast=${SAMPLE_LIMIT}`;
+
+    console.log('Attempting REST fallback URL:', url);
+    const res = await fetch(url, { method: 'GET' });
+    const text = await res.text();
+    let json = null;
+    try { json = text ? JSON.parse(text) : null; } catch (e) { console.warn('REST response not JSON:', text); }
+
+    if (!res.ok) {
+      console.error('REST fetch failed:', res.status, res.statusText, json || text);
+      throw new Error(`REST fetch failed with status ${res.status}`);
     }
 
-    scheduleRender();
-    saveCacheDebounced();
-  } catch (e) { console.error('refreshChartsOnce error', e); }
+    if (!json) {
+      console.log('REST returned no data (null) for', DEVICE_ID);
+      return [];
+    }
+
+    const arr = snapshotToArray(json);
+    return arr;
+  } catch (err) {
+    console.error('fetchSensorHistory (REST) error:', err);
+    throw err;
+  }
 }
 
-// current Data
-
-function updateLatestSensorData() {
-  if (labels.length === 0) return;
-  const lastIndex = labels.length - 1;
-
-  document.getElementById('currentTempValue').textContent = (temps[lastIndex] ?? '--') + ' °C';
-  document.getElementById('currentTempTimestamp').textContent = labels[lastIndex] ?? '--';
-
-  document.getElementById('currentHumValue').textContent = (hums[lastIndex] ?? '--') + ' %';
-  document.getElementById('currentHumTimestamp').textContent = labels[lastIndex] ?? '--';
-
-  document.getElementById('currentMotionValue').textContent = (motions[lastIndex] ?? '--') + ' times';
-  document.getElementById('currentMotionTimestamp').textContent = labels[lastIndex] ?? '--';
-
-  document.getElementById('currentLightValue').textContent = (ldrs[lastIndex] ?? '--') + ' lx';
-  document.getElementById('currentLightTimestamp').textContent = labels[lastIndex] ?? '--';
+async function fetchSensorHistory() {
+  try {
+    return await fetchSensorHistorySDK();
+  } catch (sdkErr) {
+    console.warn('SDK query failed; attempting REST fallback.', sdkErr && sdkErr.message ? sdkErr.message : sdkErr);
+    try {
+      return await fetchSensorHistoryREST();
+    } catch (restErr) {
+      console.error('Both SDK and REST fetch failed:', restErr);
+      return [];
+    }
+  }
 }
 
-// Call this function whenever labels, temps, hums, ldrs, motions are updated
-async function refreshData() {
-  // your existing code to fetch and update `labels`, `temps`, etc.
+async function refreshCharts() {
+  try {
+    const samples = await fetchSensorHistory();
+    const series = buildSeries(samples);
+    updateCharts(series);
 
-  updateLatestSensorData(); // update dashboard display after data update
+    // also check recent samples for alerts (so initial load can surface alerts)
+    try { checkSamplesArray(samples); } catch (e) { console.error('checkSamplesArray error', e); }
+
+  } catch (err) {
+    console.error('fetchSensorHistory error', err);
+  }
 }
 
-// In realtime listener callback, also call updateLatestSensorData()
-onValue(REF, (snapshot) => {
-  // process snapshot
-  updateLatestSensorData();
-});
+refreshCharts();
 
 
 
-
-
-// Initial: render cached view immediately (if available), then fetch fresh history and attach realtime listener
-loadCacheAndRender();
-refreshChartsOnce();
 
 /* ==========================
-   Alerts subsystem (inserted here so helper functions above exist)
+   Alerts subsystem (Admin Dashboard)
    - shows high-temp and motion alerts in alerts dropdown
    ========================== */
 
-const ALERT_TEMP_THRESHOLD = 33; // °C - change as needed
+/* ==========================
+   Alerts subsystem (Admin Dashboard) — UPDATED FIX for Clear behavior
+   - uses clearedUntilMs to ignore older samples so cleared alerts don't reappear
+   ========================== */
+
+const ALERT_TEMP_THRESHOLD = 30; // °C - change as needed
 const ALERT_DEDUP_MS = 30 * 1000; // suppress duplicate alerts of same type within 30s
-const ALERTS_LS_KEY = `sl_alerts_${DEVICE_ID}`;
+const ALERTS_LS_KEY = `sl_alerts_${DEVICE_ID}`; // persisted key
 const ALERT_MAX = 50;
 
 let alerts = []; // newest first
 let lastAlertTsByKey = {}; // dedupe map: key -> lastTs
+let clearedUntilMs = 0; // when user cleared alerts, ignore samples <= this time
 
 function loadAlertsFromCache() {
   try {
     const raw = localStorage.getItem(ALERTS_LS_KEY);
     if (!raw) return [];
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr : [];
-  } catch (e) { return []; }
+    const parsed = JSON.parse(raw);
+
+    // Support two shapes:
+    // 1) legacy: an array (alerts)
+    // 2) new: { alerts: [...], clearedUntilMs: 12345 }
+    if (Array.isArray(parsed)) {
+      alerts = parsed.slice(0, ALERT_MAX);
+      clearedUntilMs = 0;
+    } else if (parsed && typeof parsed === 'object') {
+      alerts = Array.isArray(parsed.alerts) ? parsed.alerts.slice(0, ALERT_MAX) : [];
+      clearedUntilMs = Number(parsed.clearedUntilMs) || 0;
+    } else {
+      alerts = [];
+      clearedUntilMs = 0;
+    }
+
+    // Filter out any alerts older than clearedUntilMs (safety)
+    if (clearedUntilMs > 0) {
+      alerts = alerts.filter(a => (a && a.ts && Number(a.ts) > clearedUntilMs));
+    }
+
+    return alerts;
+  } catch (e) {
+    console.warn('loadAlertsFromCache parse error', e);
+    alerts = [];
+    clearedUntilMs = 0;
+    return [];
+  }
 }
 
 function saveAlertsToCache() {
   try {
-    localStorage.setItem(ALERTS_LS_KEY, JSON.stringify(alerts.slice(0, ALERT_MAX)));
-  } catch (e) {}
+    const payload = { alerts: alerts.slice(0, ALERT_MAX), clearedUntilMs: clearedUntilMs || 0 };
+    localStorage.setItem(ALERTS_LS_KEY, JSON.stringify(payload));
+  } catch (e) {
+    console.warn('saveAlertsToCache error', e);
+  }
 }
 
 function formatTs(tsMs) {
-  try { return new Date(tsMs).toLocaleString(); } catch (e) { return ''; }
+  try { return new Date(Number(tsMs)).toLocaleString(); } catch (e) { return ''; }
 }
 
 function makeAlertId(type, ts) {
@@ -821,12 +810,15 @@ function makeAlertId(type, ts) {
  * title: short title
  * message: longer text
  * tsMs: numeric timestamp (ms)
- * meta: optional object (will be JSON-stringified when saved)
+ * meta: optional object
  */
 function addAlert(type, title, message, tsMs = Date.now(), meta = {}) {
-  const dedupeKey = `${type}:${message}`; // dedupe by type+message text
+  // Ignore alerts at or before clearedUntilMs
+  if (clearedUntilMs && tsMs <= clearedUntilMs) return;
+
+  const dedupeKey = `${type}:${message}`;
   const last = lastAlertTsByKey[dedupeKey] || 0;
-  if (tsMs - last < ALERT_DEDUP_MS) return; // ignore rapid repeat
+  if (tsMs - last < ALERT_DEDUP_MS) return; // rapid duplicate
 
   lastAlertTsByKey[dedupeKey] = tsMs;
 
@@ -855,7 +847,10 @@ function renderAlerts() {
 
   listEl.innerHTML = '';
 
-  if (alerts.length === 0) {
+  // Use a filtered view that excludes anything <= clearedUntilMs
+  const filtered = (alerts || []).filter(a => !clearedUntilMs || (a && Number(a.ts) > clearedUntilMs));
+
+  if (filtered.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'dropdown-item text-center small text-gray-500';
     empty.style.pointerEvents = 'none';
@@ -865,8 +860,7 @@ function renderAlerts() {
     return;
   }
 
-  // show up to 10 items visually
-  const toShow = alerts.slice(0, 10);
+  const toShow = filtered.slice(0, 10);
   for (const a of toShow) {
     const aEl = document.createElement('a');
     aEl.href = '#';
@@ -874,18 +868,15 @@ function renderAlerts() {
     aEl.dataset.alertId = a.id;
     aEl.addEventListener('click', (ev) => {
       ev.preventDefault();
-      // mark read on click
       a.read = true;
       saveAlertsToCache();
       renderAlerts();
-      // optionally: open a modal or scroll to details; left as extension
     });
 
     const iconWrap = document.createElement('div');
     iconWrap.className = 'mr-3';
     const iconCircle = document.createElement('div');
     iconCircle.className = 'icon-circle text-white';
-    // choose color and icon by type
     let bgClass = 'bg-primary';
     let iconClass = 'fas fa-info';
     if (a.type === 'temp') { bgClass = 'bg-danger'; iconClass = 'fas fa-thermometer-half'; }
@@ -913,8 +904,8 @@ function renderAlerts() {
     listEl.appendChild(aEl);
   }
 
-  // update badge to show unread count
-  const unread = alerts.filter(x => !x.read).length;
+  // update badge = unread among filtered alerts
+  const unread = filtered.filter(x => !x.read).length;
   badgeEl.textContent = unread > 99 ? '99+' : String(unread);
 }
 
@@ -922,34 +913,58 @@ function renderAlerts() {
 alerts = loadAlertsFromCache();
 renderAlerts();
 
-// Clear alerts button handler
+// Clear alerts button handler (attach once)
 (function attachClearAlerts() {
   const btn = document.getElementById('clearAlertsButton');
   if (!btn) return;
   btn.addEventListener('click', () => {
-    // simple confirm to avoid accidental clears
     //if (!confirm('Clear all alerts? This will remove them from this browser.')) return;
-    alerts = [];                 // remove in-memory items
-    lastAlertTsByKey = {};       // reset dedupe map
-    try { localStorage.removeItem(ALERTS_LS_KEY); } catch(e) {} // remove persisted alerts
-    renderAlerts();              // update UI (badge & list)
+
+    // Set clearedUntilMs to now so older sensor samples won't recreate alerts
+    clearedUntilMs = Date.now();
+
+    // Clear in-memory state
+    alerts = [];
+    lastAlertTsByKey = {};
+
+    // Persist cleared state (alerts array empty + clearedUntilMs)
+    saveAlertsToCache();
+
+    // Re-render
+    renderAlerts();
   });
 })();
 
+/* small helper to parse timestamp from sample objects (similar to buildSeries parsing) */
+function sampleTimestampMs(s) {
+  if (!s) return Date.now();
+  if (s.ts_iso && typeof s.ts_iso === 'string') {
+    const parsed = Date.parse(s.ts_iso);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  if (s.timestamp_ms || s.timestamp_ms === 0) {
+    const v = Number(s.timestamp_ms);
+    return (v > 1e11) ? v : (v > 1e9 ? v : v * 1000);
+  }
+  if (s.timestamp || s.timestamp === 0) return Number(s.timestamp) * 1000;
+  return Date.now();
+}
 
 function checkSampleForAlerts(s) {
   if (!s) return;
   const ts = sampleTimestampMs(s);
 
-  // 1) high temperature
+  // If sample is at or before clearedUntilMs, ignore entirely
+  if (clearedUntilMs && ts <= clearedUntilMs) return;
+
+  // high temperature
   if (typeof s.temperature === 'number' && s.temperature >= ALERT_TEMP_THRESHOLD) {
     const title = `High temperature: ${s.temperature}°C`;
     const msg = `Device ${DEVICE_ID} reported ${s.temperature}°C`;
     addAlert('temp', title, msg, ts, { sample: s });
   }
 
-  // 2) motion detected (only when the value indicates motion true/1)
-  // Assume motion is boolean or numeric
+  // motion detected (boolean or numeric)
   if (s.motion && (s.motion === true || s.motion === 1 || s.motion === '1' || s.motion === 'true')) {
     const title = `Motion detected`;
     const msg = `Motion detected on ${DEVICE_ID}`;
@@ -957,35 +972,196 @@ function checkSampleForAlerts(s) {
   }
 }
 
-/* ==========================
-   End of alerts subsystem
-   ========================== */
+/* iterate an array of samples (ascending by timestamp) and run checks */
+function checkSamplesArray(samples) {
+  if (!Array.isArray(samples) || samples.length === 0) return;
+  for (const s of samples) {
+    try { checkSampleForAlerts(s); } catch (e) { /* continue */ }
+  }
+}
 
-// realtime listener: use limitToLast so we get the recent push nodes; only append items newer than lastTsMs
+
+/* Realtime listener: also use limitToLast so listener gets the latest push nodes */
 try {
-  const qRealtime = query(REF, limitToLast(LIVE_LIMIT));
+  const qRealtime = query(REF, limitToLast(SAMPLE_LIMIT));
   onValue(qRealtime, (snapshot) => {
-    if (!snapshot.exists()) return;
-    const val = snapshot.val();
-    const items = Object.values(val || {});
-    // sort by timestamp ascending to handle multiple new items in order
-    items.sort((a,b) => sampleTimestampMs(a) - sampleTimestampMs(b));
-    let appended = false;
-    for (const s of items) {
-      const added = pushSampleToBuffers(s);
-      if (added) {
-        // NEW: check for alerts on each newly-added sample
-        try { checkSampleForAlerts(s); } catch (e) { console.error('Alert check error', e); }
-        appended = true;
-      }
+    if (!snapshot.exists()) {
+      console.log('Realtime listener: no data');
+      updateCharts(buildSeries([]));
+      return;
     }
-    if (appended) { scheduleRender(); saveCacheDebounced(); }
-  }, (e) => { console.error('Realtime listener error', e); });
+    const arr = snapshotToArray(snapshot.val());
+    updateCharts(buildSeries(arr));
+    // NEW: check incoming realtime samples for alerts
+    try { checkSamplesArray(arr); } catch (e) { console.error('checkSamplesArray realtime error', e); }
+  }, (e) => {
+    console.error('Realtime listener error', e);
+  });
 } catch (e) {
   console.warn('Failed to attach realtime listener (will rely on polling):', e);
-  // fallback polling (less desirable) - poll every 15s
-  setInterval(refreshChartsOnce, 15000);
 }
+
+setInterval(refreshCharts, 15000);
+</script>
+
+<script type="module" src="./users-logincount-pie.js"></script>
+
+	
+	<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
+  import { doc, onSnapshot, getDoc } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
+
+  const topbarUsernameEl = document.getElementById('topbarUsername');
+  const topbarAvatarEl   = document.getElementById('topbarAvatar');
+  const greetingEl       = document.getElementById('greeting');
+
+  // default avatar if none provided
+  const DEFAULT_AVATAR = 'img/undraw_profile.svg';
+
+  let unsubscribeUserDoc = null;
+
+  onAuthStateChanged(auth, async (user) => {
+    // cleanup previous listener
+    if (unsubscribeUserDoc) {
+      unsubscribeUserDoc();
+      unsubscribeUserDoc = null;
+    }
+
+    if (!user) {
+      // no user -> redirect to login (or leave page depending on your flow)
+      console.log('No user signed in — redirecting to login.');
+      location.replace('login.html');
+      return;
+    }
+
+    // 1) immediate UI from auth object (fast)
+    const displayName = user.displayName || '';
+    const email = user.email || '';
+    topbarUsernameEl.textContent = displayName || email.split('@')[0] || 'User';
+    topbarAvatarEl.src = user.photoURL || DEFAULT_AVATAR;
+    greetingEl.textContent = `Hello ${displayName || email.split('@')[0] || 'User'} !`;
+
+    // 2) attempt to subscribe to users/{uid} for realtime updates (preferred)
+    const userDocRef = doc(db, 'users', user.uid);
+
+    // if the doc exists we subscribe; if not, simply keep auth values
+    try {
+      const snap = await getDoc(userDocRef);
+      if (snap.exists()) {
+        // realtime updates
+        unsubscribeUserDoc = onSnapshot(userDocRef, (snapshot) => {
+          if (!snapshot.exists()) return;
+          const data = snapshot.data();
+
+          // username logic: prefer Firestore username, fallback to auth.displayName or email prefix
+          const uname = data.username || user.displayName || (user.email ? user.email.split('@')[0] : null) || 'User';
+          topbarUsernameEl.textContent = uname;
+          greetingEl.textContent = `Hello ${uname} !`;
+
+          // avatar logic: prefer Firestore avatarUrl -> auth.photoURL -> default
+          if (data.avatarUrl) {
+            topbarAvatarEl.src = data.avatarUrl;
+          } else if (user.photoURL) {
+            topbarAvatarEl.src = user.photoURL;
+          } else {
+            topbarAvatarEl.src = DEFAULT_AVATAR;
+          }
+        }, (err) => {
+          console.error('users/{uid} onSnapshot error:', err);
+        });
+      } else {
+        // no doc: keep auth fields (already set). You may choose to create a doc on first load.
+        console.log('users/{uid} doc not found; using auth values.');
+      }
+    } catch (err) {
+      console.error('Error accessing users/{uid}:', err);
+    }
+  });
+</script>
+
+
+
+<!-- JS Current Sensor Data Summary Cards -->
+
+<script type="module">
+
+import { rtdb } from './firebase-config.js';
+import { ref as dbRef, query, limitToLast, onValue } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js';
+
+const DEVICE_ID = 'device01';
+const REF_PATH = `devices/${DEVICE_ID}/sensors`;
+const REF = dbRef(rtdb, REF_PATH);
+
+// Parse timestamp for display
+function parseTimestampMs(sample) {
+  if (!sample) return Date.now();
+  if (sample.ts_iso) {
+    const parsed = Date.parse(sample.ts_iso);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  if (sample.timestamp_ms !== undefined) {
+    const v = Number(sample.timestamp_ms);
+    return (v > 1e11) ? v : (v > 1e9 ? v : v * 1000);
+  }
+  if (sample.timestamp !== undefined) return Number(sample.timestamp) * 1000;
+  return Date.now();
+}
+
+// Update sensor cards UI with latest sample data
+function updateSensorCards(sample) {
+  const defaultText = '--';
+  if (!sample) {
+    // Clear or show defaults
+    document.getElementById('currentTempValue').textContent = `${defaultText} °C`;
+    document.getElementById('currentTempTimestamp').textContent = defaultText;
+    document.getElementById('currentHumValue').textContent = `${defaultText} %`;
+    document.getElementById('currentHumTimestamp').textContent = defaultText;
+    document.getElementById('currentMotionValue').textContent = `${defaultText} times`;
+    document.getElementById('currentMotionTimestamp').textContent = defaultText;
+    document.getElementById('currentLightValue').textContent = `${defaultText} lx`;
+    document.getElementById('currentLightTimestamp').textContent = defaultText;
+    return;
+  }
+
+  const ts = parseTimestampMs(sample);
+  const tsStr = new Date(ts).toLocaleString();
+
+  document.getElementById('currentTempValue').textContent = (sample.temperature !== undefined) ? `${sample.temperature} °C` : `${defaultText} °C`;
+  document.getElementById('currentTempTimestamp').textContent = tsStr;
+
+  document.getElementById('currentHumValue').textContent = (sample.humidity !== undefined) ? `${sample.humidity} %` : `${defaultText} %`;
+  document.getElementById('currentHumTimestamp').textContent = tsStr;
+
+  // Convert motion boolean to "0" or "1" string with ' times'
+  let motionVal = sample.motion;
+  if (motionVal === true) motionVal = '1';
+  else if (motionVal === false) motionVal = '0';
+  else motionVal = motionVal ? '1' : '0';
+  document.getElementById('currentMotionValue').textContent = motionVal + ' times';
+  document.getElementById('currentMotionTimestamp').textContent = tsStr;
+
+  document.getElementById('currentLightValue').textContent = (sample.ldr !== undefined) ? `${sample.ldr} lx` : `${defaultText} lx`;
+  document.getElementById('currentLightTimestamp').textContent = tsStr;
+}
+
+// Real-time listener updates cards on latest data arrival
+const latestQuery = query(REF, limitToLast(1));
+onValue(latestQuery, (snapshot) => {
+  if (!snapshot.exists()) {
+    updateSensorCards(null);
+    return;
+  }
+  const data = snapshot.val();
+  const samples = Object.values(data);
+  const latestSample = samples.length > 0 ? samples[samples.length - 1] : null;
+  updateSensorCards(latestSample);
+}, (error) => {
+  console.error('Error fetching latest sensor data:', error);
+  updateSensorCards(null);
+});
+
+
 </script>
 
 
