@@ -97,7 +97,7 @@
   <script src="vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
   <script src="vendor/jquery-easing/jquery.easing.min.js"></script>
   <script src="js/sb-admin-2.min.js"></script>
-  
+ 
 <script type="module">
   import { auth } from './firebase-config.js';
   import {
@@ -112,10 +112,8 @@
     setDoc,
     increment
   } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
-
   const loginForm = document.getElementById('loginForm');
   const db = getFirestore();
-
   // helper: increment login count atomically, create field if missing
   async function incrementLoginCount(uid) {
     if (!uid) return;
@@ -135,12 +133,10 @@
       }
     }
   }
-
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('inputEmail').value.trim();
     const password = document.getElementById('inputPassword').value;
-
     // If credentials match the special temporary admin shortcut, sign in anonymously
     // and NEVER increment the login count.
     const isTempAdminCredentials = (email === "admin@admin" && password === "admin");
@@ -155,6 +151,7 @@
         }
         await signInAnonymously(auth);
         // Intentionally do NOT increment login count for temp admin
+        //fetch("https://smartlux-night-light-backend.onrender.com/api/syncUserCount").catch(err => console.error('Failed to sync user count:', err));
         window.location.href = "profileAdmin.html";
         return;
       } catch (err) {
@@ -163,12 +160,10 @@
         return;
       }
     }
-
     try {
       // normal sign-in flow for all other credentials
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const uid = userCredential.user.uid;
-
       // Lookup role in Firestore (same as before)
       const userDocRef = doc(db, 'users', uid);
       const userSnap = await getDoc(userDocRef);
@@ -179,7 +174,6 @@
       } else {
         console.warn(`No user document found for uid ${uid}.`);
       }
-
       // Only increment for non-anonymous authenticated users (and we already filtered temp admin)
       try {
         if (!userCredential.user.isAnonymous) {
@@ -190,7 +184,7 @@
       } catch (incErr) {
         console.error('Failed to increment login count:', incErr);
       }
-
+      fetch("https://smartlux-night-light-backend.onrender.com/api/syncUserCount").catch(err => console.error('Failed to sync user count:', err));
       if (role === 'admin') window.location.href = "dashboardadmin.html";
       else window.location.href = "dashboard.html";
     } catch (error) {
@@ -199,6 +193,5 @@
     }
   });
 </script>
-
 </body>
 </html>

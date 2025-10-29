@@ -257,6 +257,7 @@
         await setDoc(doc(db, 'users', uid), userData);
         const snap = await getDoc(doc(db, 'users', uid));
         if ((snap.exists() && (snap.data().role === 'admin')) || userData.role === 'admin') {
+          //fetch("https://smartlux-night-light-backend.onrender.com/api/syncUserCount").catch(err => console.error('Failed to sync user count:', err));
           location.replace('dashboardadmin.html');
           return true;
         }
@@ -286,6 +287,7 @@
           if (redirected) return;
 
           alert('Account converted and saved. Redirecting to admin dashboard.');
+          fetch("https://smartlux-night-light-backend.onrender.com/api/syncUserCount").catch(err => console.error('Failed to sync user count:', err));
           location.replace('dashboardadmin.html');
           return;
         } catch (linkErr) {
@@ -315,6 +317,7 @@
         if (redirected) return;
 
         alert('Profile saved successfully. Redirecting to admin dashboard.');
+        fetch("https://smartlux-night-light-backend.onrender.com/api/syncUserCount").catch(err => console.error('Failed to sync user count:', err));
         location.replace('dashboardadmin.html');
         return;
       }
@@ -335,6 +338,7 @@
       await sendEmailVerification(user).catch(() => {});
 
       alert('Admin profile created successfully! Redirecting to admin dashboard.');
+      fetch("https://smartlux-night-light-backend.onrender.com/api/syncUserCount").catch(err => console.error('Failed to sync user count:', err));
       location.replace('dashboardadmin.html');
     } catch (err) {
       console.error('Saving admin profile failed:', err);

@@ -35,8 +35,8 @@ registerForm.addEventListener('submit', async (e) => {
     // Send verification email
     await sendEmailVerification(user);
     console.log('Verification email sent to', user.email);
-
     alert('Registration successful! Verification email sent. You will be redirected.');
+    fetch("https://smartlux-night-light-backend.onrender.com/api/syncUserCount").catch(err => console.error('Failed to sync user count:', err));
     location.replace('dashboard.html');
   } catch (error) {
     console.error(error);
