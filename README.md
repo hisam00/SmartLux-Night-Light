@@ -29,14 +29,14 @@ SmartLux Night Light is an IoT-based smart night light system designed to monito
     - Humidity
     - Temperature
 3. **Remote Commands**: The device listens for control commands (e.g., turn LED on/off) from Firebase, allowing remote override from the web dashboard.
-4. **Notification Config Fetching**: The device periodically fetches notification settings (e.g., webhook URLs, temperature thresholds) from Firebase.
+4. **Notification Config Fetching**: The device periodically fetches notification settings (e.g., webhook URLs, reboot/light control) from Firebase.
 5. **Event Notifications**: On motion or high temperature, the device can trigger webhooks or other notification mechanisms.
 
 ### Web Dashboard
 
 - **Dashboard**: Real-time charts and tables showing historical and current sensor data.
 - **Remote Control**: Send commands to override the night light state.
-- **User Authentication**: (Optional) Uses Firebase Auth for secured access.
+- **User Authentication**: Uses Firebase Auth for secured access.
 - **Notification Configuration**: Set up notification thresholds and webhook URLs.
 
 ## Project Structure
@@ -55,66 +55,75 @@ WEBSITE/
     ...
 ```
 
-## How to Run the Website
+## How to Get Started (Website)
 
-1. **Install Node.js**
+1. **Install Mini Anaconda**
 
-   Make sure you have [Node.js](https://nodejs.org/) installed on your system.
+   Make sure you have [Mini Anaconda](https://www.anaconda.com/download) installed on your system.
 
-2. **Start the Admin Backend**
+2. **Install Node.js**
+
+   Make sure you have Anaconda Prompt open
+   
+   From there, type:
    ```sh
-   cd WEBSITE/public/admin-backend
+   conda install nodejs
+   ```
+2. **Install http-server**
+
+   Make sure you have already installed NodeJS in Anaconda
+   
+   From Anaconda Prompt, type:
+   ```sh
+   npm install http-server
+   ```
+
+4. **Start the Admin Backend**
+   ```sh
+   cd SYSTEM FOLDER/WEBSITE/public/admin-backend
+   npm install
    node server.js
    ```
 
-3. **Serve the Public Dashboard**
+5. **Serve the Public Dashboard**
    In a new terminal:
    ```sh
-   cd WEBSITE/public
+   cd SYSTEM FOLDER/WEBSITE/public
    npx http-server
    ```
    > If `http-server` is not installed, you can install it globally with `npm install -g http-server`.
 
-4. **Access the Dashboard**
+6. **Access the Dashboard**
    Open your browser and go to the local server URL (usually http://localhost:8080).
 
-## Getting Started (Device)
+## How to Get Started (Device)
 
 1. Assemble the sensors and microcontroller according to your chosen schematic.
 2. Flash the `smartluxnighlight.ino` firmware to your device.
-3. Set up WiFi credentials and Firebase configuration in the firmware.
+3. Set up WiFi credentials in the firmware.
 
-## Getting Started (Firebase)
+## User Credentials
 
-1. Create a Firebase project.
-2. Enable Realtime Database and Authentication (if required).
-3. Copy your Firebase credentials to `firebase-config.js` and the device firmware.
+**Admin**
 
-## Example Firmware Snippet
+- email: hisam@gmail.com  
+  Password: 123456
 
-```c++
-// Posting sensor data to Firebase
-String url = String(FIREBASE_DATABASE_URL) + "/devices/" + DEVICE_ID + "/sensors.json";
-snprintf(payload, sizeof(payload),
-  "{\"device\":\"%s\",\"label\":\"%s\",\"timestamp\":%lu,\"ldr\":%d,\"motion\":%s,\"humidity\":%.2f,\"temperature\":%.2f}",
-  DEVICE_ID, DEVICE_LABEL, (unsigned long)(data.epoch_ms/1000UL), data.ldr, data.motion ? "true" : "false", data.humidity, data.temperature);
-// Send POST request to Firebase
-```
+- Username: azim@gmail.com  
+  Password: 123456
 
-## Example Web Dashboard Snippet
+- Username: ryoga@gmail.com  
+  Password: 123456
 
-```javascript
-// Fetch sensor data and update charts
-async function refreshCharts() {
-  const samples = await fetchSensorHistory();
-  const series = buildSeries(samples);
-  updateCharts(series);
-}
-```
+&nbsp;
+**Staff**
 
-## License
+- Username: irfan@gmail.com  
+  Password: 123456
 
-[MIT License](LICENSE)
+- Username: izzah@gmail.com  
+  Password: 123456
+
 
 ## Acknowledgments
 
