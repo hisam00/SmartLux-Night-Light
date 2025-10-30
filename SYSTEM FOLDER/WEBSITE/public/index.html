@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SmartLux Night Light</title>
+  <meta name="description" content="Split-screen auth landing with animated typing headline" />
+  <style>
+    :root{
+      /* made the left purple background lighter and the right "black" a softer charcoal */
+      --left-bg:#2a1638; /* lighter purple */
+      --left-accent-1:#d2a8ff; /* softer pink/purple */
+      --left-accent-2:#f3d9ff; /* pale highlight */
+      --right-bg:#0b0b0f; /* softer black / charcoal */
+      --muted:#9aa6b2;
+      --btn-blue:#1266d6; /* main button, slightly brighter */
+      --btn-blue-2:#2a86ff; /* secondary */
+      --text:#e6eef6;
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      color:var(--text);
+      background:linear-gradient(180deg,#060417 0%, #0a0816 100%);
+      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+    }
+
+    .split{display:grid; grid-template-columns: 1.2fr 1fr; min-height:100vh}
+
+    /* LEFT HERO */
+    .hero{
+      background: linear-gradient(180deg,var(--left-bg) 0%, #1a0b2a 100%);
+      padding:56px 72px;
+      display:flex; flex-direction:column; justify-content:center; align-items:flex-start; /* center vertically, left align horizontally */
+      position:relative;
+    }
+
+    .top-left-brand{position:absolute;left:32px;top:24px;color:var(--left-accent-1);font-weight:600}
+
+    .hero .title{font-size:56px;line-height:1.02;margin:0 0 8px 0;font-weight:800; max-width:900px;
+      background: linear-gradient(90deg,var(--left-accent-1), var(--left-accent-2));
+      -webkit-background-clip:text; background-clip:text; color:transparent;
+      letter-spacing:-0.8px; display:inline-block; white-space:nowrap; overflow:hidden;
+    }
+
+    /* single caret appearance */
+    .caret{
+      color:var(--left-accent-2);
+      display:inline-block;
+      margin-left:8px;
+      font-weight:700;
+      line-height:1;
+      vertical-align:bottom;
+      animation:blink 1s steps(2,end) infinite;
+    }
+    @keyframes blink{50%{opacity:0}}
+
+    .hero .subtitle{font-size:28px;margin:0;color:rgba(243,217,255,0.95);font-weight:500; margin-top:6px;}
+
+    /* RIGHT PANEL */
+    .panel{
+      background:var(--right-bg);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 32px;position:relative;
+    }
+
+    .center-box{text-align:center;max-width:420px}
+    .center-box h2{margin:0 0 22px 0;font-size:30px}
+
+    .btn-row{display:flex;gap:22px;justify-content:center;margin-bottom:16px}
+    .btn{
+      display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:14px 34px;border-radius:28px;border:none;cursor:pointer;font-weight:600;font-size:15px;min-width:170px;box-shadow:0 6px 18px rgba(18,102,214,0.18)
+    }
+    .btn.login{background:var(--btn-blue);color:#fff}
+    .btn.signup{background:linear-gradient(90deg,var(--btn-blue),var(--btn-blue-2));color:#fff}
+
+    .try{color:var(--muted);font-size:14px;margin-top:6px}
+
+    /* footer */
+    .panel footer{position:absolute;left:0;right:0;bottom:22px;display:flex;flex-direction:column;align-items:center;gap:8px}
+    .links{display:flex;gap:12px;color:var(--muted);font-size:13px}
+    .links a{color:var(--muted);text-decoration:none}
+
+    .logo-small{width:28px;height:28px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);display:grid;place-items:center}
+
+    /* responsive */
+    @media (max-width:900px){
+      .split{grid-template-columns:1fr;}
+      .hero{min-height:40vh;padding:36px}
+      .panel{padding:30px}
+      .hero .title{font-size:36px}
+      .hero .subtitle{font-size:20px}
+      .btn-row{flex-direction:column}
+      .btn{min-width:220px}
+    }
+
+  </style>
+</head>
+<body>
+  <div class="split">
+    <aside class="hero">
+      <div class="top-left-brand">SmartLux Night Light</div>
+      <div>
+        <h1 class="title" id="animatedTitle"><span id="typedTitle"></span></h1>
+        <p class="subtitle"><span id="typedSubtitle"></span><span class="caret" id="caret">▌</span></p>
+      </div>
+    </aside>
+
+    <section class="panel" aria-labelledby="get-started">
+      <div class="center-box" role="region">
+        <h2 id="get-started">Get started</h2>
+
+        <div class="btn-row" role="group" aria-label="auth actions">
+          <button class="btn login" id="loginBtn">Log in</button>
+          <button class="btn signup" id="signupBtn">Sign up for free</button>
+        </div>
+
+        <div class="try">Try it first</div>
+      </div>
+
+      <footer>
+        <div class="logo-small" aria-hidden="true">⚙</div>
+        <div class="links"><a href="#">Terms of use</a> | <a href="#">Privacy policy</a></div>
+      </footer>
+    </section>
+  </div>
+
+  <script>
+    // Typing animation for the headline + subtitle as a single continuous typing flow
+    (function(){
+      const titles = [
+        'Intelligent Lighting',
+        'Energy Efficient',
+        'Smart Comfort',
+        'Adaptive Brightness'
+      ];
+      const subtitles = [
+        'Adapts to your environment with smart sensors',
+        'Motion detection saves power when you need it',
+        'Temperature sensing for a cozy atmosphere',
+        'Light auto adjustment to match your surroundings'
+      ];
+
+      const titleEl = document.getElementById('typedTitle');
+      const subEl = document.getElementById('typedSubtitle');
+      const caret = document.getElementById('caret');
+
+      const typeSpeed = 70;
+      const deleteSpeed = 40;
+      const pauseBetween = 1000;
+
+      let idx = 0;
+
+      function moveCaretAfter(el){
+        // place the single caret after the provided element
+        el.parentNode.insertBefore(caret, el.nextSibling);
+        caret.style.visibility = 'visible';
+      }
+
+      function typeSequence(index){
+        const t = titles[index];
+        const s = subtitles[index];
+
+        // clear both
+        titleEl.textContent = '';
+        subEl.textContent = '';
+
+        // start typing title (caret sits after subtitle by default, move it to title)
+        moveCaretAfter(titleEl);
+
+        // type title fully
+        let i = 0;
+        function typeTitle(){
+          if(i <= t.length){
+            titleEl.textContent = t.slice(0, i);
+            i++;
+            setTimeout(typeTitle, typeSpeed + Math.random()*30);
+          } else {
+            // after title typed, move caret to subtitle and type subtitle
+            moveCaretAfter(subEl);
+            setTimeout(typeSubtitle, 140);
+          }
+        }
+
+        let j = 0;
+        function typeSubtitle(){
+          if(j <= s.length){
+            subEl.textContent = s.slice(0, j);
+            j++;
+            setTimeout(typeSubtitle, typeSpeed + Math.random()*20);
+          } else {
+            // pause, then delete subtitle, then delete title
+            setTimeout(()=> deleteSubtitle(), pauseBetween);
+          }
+        }
+
+        function deleteSubtitle(){
+          if(subEl.textContent.length > 0){
+            subEl.textContent = subEl.textContent.slice(0, -1);
+            setTimeout(deleteSubtitle, deleteSpeed + 5);
+          } else {
+            setTimeout(deleteTitle, 120);
+          }
+        }
+
+        function deleteTitle(){
+          if(titleEl.textContent.length > 0){
+            titleEl.textContent = titleEl.textContent.slice(0, -1);
+            setTimeout(deleteTitle, deleteSpeed);
+          } else {
+            // move to next phrase
+            caret.style.visibility = 'hidden';
+            idx = (index + 1) % titles.length;
+            setTimeout(()=> typeSequence(idx), 300);
+          }
+        }
+
+        // kick off title typing
+        typeTitle();
+      }
+
+      // start
+      typeSequence(0);
+
+    })();
+
+    // navigation placeholders
+    document.getElementById('loginBtn').addEventListener('click', ()=> window.location.href = 'login.html');
+    document.getElementById('signupBtn').addEventListener('click', ()=> window.location.href = 'register.html');
+  </script>
+</body>
+</html>

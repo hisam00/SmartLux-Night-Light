@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta name="description" content="" />
+    <meta name="author" content="" />
+    <title>SmartLux Night Light - User Dashboard</title>
+    <!-- Custom fonts for this template-->
+    <link href="vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css" />
+    <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i"
+        rel="stylesheet" />
+    <!-- Custom styles for this template-->
+    <link href="css/sb-admin-2.min.css" rel="stylesheet" />
+	
+	<link href="vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet" />
+    
+    <style>
+
+.sidebar-logo-img {
+    width: 60px;
+    height: auto;
+    margin-right: 0px; /* Decrease to bring text closer */
+    margin-top: 15px;
+    margin-left: 0px;
+    
+}
+
+.sidebar-brand-text {
+    font-size: 12px; /* Smaller text */
+    margin-left: 0;  /* Ensure no left margin */
+    margin-right: 18px;
+}
+
+</style>
+    
+    
+</head>
+<body id="page-top">
+    <!-- Page Wrapper -->
+    <div id="wrapper">
+        <!-- Sidebar -->
+        <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
+            
+            	<!-- Sidebar - Brand -->
+           <a class="sidebar-brand d-flex align-items-center justify-content-center" href="dashboard.html">
+            <img src="img/LOGONT.png" alt="Logo" class="sidebar-logo-img" />
+            <div class="sidebar-brand-text" style="font-size:15px;">SMARTLUX NIGHT LIGHT</div>
+            </a>
+            
+            
+            <!-- Divider -->
+            <hr class="sidebar-divider my-0" />
+            <!-- Nav Item - Dashboard -->
+            <li class="nav-item">
+                <a class="nav-link" href="dashboard.html">
+                    <i class="fas fa-fw fa-tachometer-alt"></i>
+                    <span>Dashboard</span></a
+                >
+            </li>
+			
+			<hr class="sidebar-divider my-0" />
+			 <!-- Nav Item - Control -->
+			<li class="nav-item active">
+				<a class="nav-link" href="temperature.html">
+					<i class="fas fa-fw fa-solid fa-temperature-low"></i>
+					<span>Temperature</span>
+				</a>
+			</li>
+			<hr class="sidebar-divider my-0" />
+			 <!-- Nav Item - Control -->
+			<li class="nav-item">
+				<a class="nav-link" href="humidity.html">
+					<i class="fas fa-fw fa-solid fa-tint"></i>
+					<span>Humidity</span>
+				</a>
+			</li>
+			<hr class="sidebar-divider my-0" />
+			 <!-- Nav Item - Control -->
+			<li class="nav-item">
+				<a class="nav-link" href="motion.html">
+					<i class="fas fa-fw fa-solid fa-running"></i>
+					<span>Motion</span>
+				</a>
+			</li>
+			<hr class="sidebar-divider my-0" />
+			 <!-- Nav Item - Control -->
+			<li class="nav-item">
+				<a class="nav-link" href="light.html">
+					<i class="fas fa-fw fa-solid fa-lightbulb"></i>
+					<span>Light</span>
+				</a>
+			</li>
+			<hr class="sidebar-divider my-0" />
+			 <!-- Nav Item - Control -->
+			<li class="nav-item">
+				<a class="nav-link" href="control.html">
+					<i class="fas fa-fw fa-cogs"></i>
+					<span>Light Control</span>
+				</a>
+			</li>
+
+
+            <!-- Divider -->
+            <hr class="sidebar-divider d-none d-md-block" />
+            <!-- Sidebar Toggler (Sidebar) -->
+            <div class="text-center d-none d-md-inline">
+                <button class="rounded-circle border-0" id="sidebarToggle"></button>
+            </div>
+        </ul>
+        <!-- End of Sidebar -->
+        <!-- Content Wrapper -->
+        <div id="content-wrapper" class="d-flex flex-column">
+            <!-- Main Content -->
+            <div id="content">
+                <!-- Topbar -->
+                <nav
+                    class="navbar navbar-expand navbar-light bg-white topbar mb-4 static-top shadow"
+                >
+                    <!-- Sidebar Toggle (Topbar) -->
+                    <button
+                        id="sidebarToggleTop"
+                        class="btn btn-link d-md-none rounded-circle mr-3"
+                    >
+                        <i class="fa fa-bars"></i>
+                    </button>
+
+                    <!-- Topbar Navbar -->
+                    <ul class="navbar-nav ml-auto">
+                        <!-- Nav Item - Search Dropdown (Visible Only XS) -->
+                        <li class="nav-item dropdown no-arrow d-sm-none">
+                            <a
+                                class="nav-link dropdown-toggle"
+                                href="#"
+                                id="searchDropdown"
+                                role="button"
+                                data-toggle="dropdown"
+                                aria-haspopup="true"
+                                aria-expanded="false"
+                                ><i class="fas fa-search fa-fw"></i
+                            ></a>
+                            <!-- Dropdown - Messages -->
+                            <div
+                                class="dropdown-menu dropdown-menu-right p-3 shadow animated--grow-in"
+                                aria-labelledby="searchDropdown"
+                            >
+                                <form class="form-inline mr-auto w-100 navbar-search">
+                                    <div class="input-group">
+                                        <input
+                                            type="text"
+                                            class="form-control bg-light border-0 small"
+                                            placeholder="Search for..."
+                                            aria-label="Search"
+                                            aria-describedby="basic-addon2"
+                                        />
+                                        <div class="input-group-append">
+                                            <button class="btn btn-primary" type="button">
+                                                <i class="fas fa-search fa-sm"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </li>
+
+                        
+
+                        <!-- Nav Item - User Information -->
+                        <div class="topbar-divider d-none d-sm-block"></div>
+                        <!-- Nav Item - User Information -->
+                        <li class="nav-item dropdown no-arrow">
+                          <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-toggle="dropdown"
+                             aria-haspopup="true" aria-expanded="false">
+                            <!-- give this span an id so we can update it -->
+                            <span id="topbarUsername" class="mr-2 d-none d-lg-inline text-gray-600 small">First User</span>
+                            <!-- give this img an id so we can update it -->
+                            <img id="topbarAvatar" class="img-profile rounded-circle" src="img/undraw_profile.svg" />
+                          </a>
+                            <!-- Dropdown - User Information -->
+                            <div
+                                class="dropdown-menu dropdown-menu-right shadow animated--grow-in"
+                                aria-labelledby="userDropdown"
+                            >
+                                <a class="dropdown-item" href="profile.html">
+                                    <i
+                                        class="fas fa-user fa-sm fa-fw mr-2 text-gray-400"
+                                    ></i>
+                                    Profile
+                                </a>
+
+                                <div class="dropdown-divider"></div>
+                                <a
+                                    class="dropdown-item"
+                                    href="#"
+                                    data-toggle="modal"
+                                    data-target="#logoutModal"
+                                >
+                                    <i
+                                        class="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-gray-400"
+                                    ></i>
+                                    Logout
+                                </a>
+                            </div>
+                        </li>
+                    </ul>
+                </nav>
+                <!-- End of Topbar -->
+                <!-- Begin Page Content -->
+                <div class="container-fluid">
+                    <!-- Page Heading -->
+                    <div
+                        class="d-sm-flex align-items-center justify-content-between mb-4"
+                    >
+                        <h1>Temperature</h1>
+                        
+						
+												
+                      <a href="javascript:void(0)" id="generateReportBtn" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm">
+  <i class="fas fa-download fa-sm text-white-50"></i> Generate Temperature Report
+</a>
+
+
+
+						
+						
+                    </div>
+
+                    <!-- Scroll to Top Button-->
+                    <a class="scroll-to-top rounded" href="#page-top"
+                        ><i class="fas fa-angle-up"></i
+                    ></a>
+
+                    <div class="row">
+                        <!-- Temperature Chart (Area) -->
+                        <div class="col-xl-8 col-lg-7">
+                            <div class="card shadow mb-4">
+                                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                                    <h6 class="m-0 font-weight-bold text-primary">Temperature</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="chart-area">
+                                        <canvas id="myTemperatureChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Temperature Table -->
+                    <div class="row">
+                        <div class="col-xl-8 col-lg-7">
+                            <div class="card shadow mb-4">
+                                <div class="card-header py-3">
+                                    <h6 class="m-0 font-weight-bold text-primary">Temperature Readings Table</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered" id="temperatureTable">
+                                            <thead>
+                                                <tr>
+                                                    <th>Timestamp</th>
+                                                    <th>Temperature (°C)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <!-- Table rows filled dynamically by JS -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Logout Modal -->
+                    <div
+                        class="modal fade"
+                        id="logoutModal"
+                        tabindex="-1"
+                        role="dialog"
+                        aria-labelledby="exampleModalLabel"
+                        aria-hidden="true"
+                    >
+                        <div class="modal-dialog" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="exampleModalLabel">
+                                        Ready to Leave?
+                                    </h5>
+                                    <button
+                                        class="close"
+                                        type="button"
+                                        data-dismiss="modal"
+                                        aria-label="Close"
+                                    >
+                                        <span aria-hidden="true">×</span>
+                                    </button>
+                                </div>
+                                <div class="modal-body">
+                                    Select "Logout" below if you are ready to end your current
+                                    session.
+                                </div>
+                                <div class="modal-footer">
+                                    <button
+                                        class="btn btn-secondary"
+                                        type="button"
+                                        data-dismiss="modal"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <a class="btn btn-primary" href="login.html">Logout</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Bootstrap core JavaScript-->
+            <script src="vendor/jquery/jquery.min.js"></script>
+            <script src="vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+            <script src="vendor/jquery-easing/jquery.easing.min.js"></script>
+            <script src="js/sb-admin-2.min.js"></script>
+            <script src="vendor/chart.js/Chart.min.js"></script>
+			
+			<script src="vendor/datatables/jquery.dataTables.min.js"></script>
+			<script src="vendor/datatables/dataTables.bootstrap4.min.js"></script>
+			
+<script type="module">
+import { rtdb } from './firebase-config.js';
+import { ref as dbRef, query, limitToLast, get } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js';
+
+const DEVICE_ID = 'device01';
+const HIST_LIMIT = 50;
+const REF_PATH = `devices/${DEVICE_ID}/sensors`;
+const REF = dbRef(rtdb, REF_PATH);
+
+const chartCtx = document.getElementById('myTemperatureChart').getContext('2d');
+window.chartTemp = new Chart(chartCtx, {
+  type: 'line',
+  data: { labels: [], datasets: [{ label: 'Temperature', data: [], lineTension: 0.3, backgroundColor: 'rgba(255,99,132,0.05)', borderColor: 'rgba(255,99,132,1)', pointRadius: 3, pointHitRadius: 10 }] },
+  options: {
+    maintainAspectRatio: false,
+    layout: { padding: { left: 10, right: 25, top: 25, bottom: 0 } },
+    scales: {
+      xAxes: [{ gridLines: { display: false } }],
+      yAxes: [{
+        ticks: { maxTicksLimit: 7, padding: 10, callback: (v) => v + '°C' },
+        gridLines: { color: 'rgb(234,236,244)', zeroLineColor: 'rgb(234,236,244)', drawBorder: false, borderDash: [2], zeroLineBorderDash: [2] }
+      }]
+    },
+    legend: { display: false }
+  }
+});
+
+const tableBody = document.querySelector('#temperatureTable tbody');
+let temperatureDataTable = null;
+
+function sampleTimestampMs(s) {
+  if (!s) return Date.now();
+  if (s.ts_iso) {
+    const parsed = Date.parse(s.ts_iso);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  if (s.timestamp_ms !== undefined) {
+    const v = Number(s.timestamp_ms);
+    return (v > 1e11) ? v : (v > 1e9 ? v : v * 1000);
+  }
+  if (s.timestamp !== undefined) return Number(s.timestamp) * 1000;
+  return Date.now();
+}
+
+function renderTable(labels, temps) {
+  tableBody.innerHTML = '';
+  for (let i = 0; i < labels.length; i++) {
+    const tr = document.createElement('tr');
+    const tdTime = document.createElement('td');
+    const tdTemp = document.createElement('td');
+    tdTime.textContent = labels[i];
+    tdTemp.textContent = (temps[i] !== null && temps[i] !== undefined) ? temps[i].toFixed(2) : '—';
+    tr.appendChild(tdTime);
+    tr.appendChild(tdTemp);
+    tableBody.appendChild(tr);
+  }
+
+  // Initialize or refresh DataTable with pagination (10 per page)
+  if ($.fn.DataTable.isDataTable('#temperatureTable')) {
+    temperatureDataTable.destroy();
+  }
+  temperatureDataTable = $('#temperatureTable').DataTable({
+    pageLength: 10,
+    lengthChange: false,
+    searching: false,
+    ordering: true,
+    info: false,
+    paging: true,
+    order: [[0, 'desc']]  // NEWEST FIRST
+  });
+}
+
+async function refreshTemperatureData() {
+  try {
+    const q = query(REF, limitToLast(HIST_LIMIT));
+    const snap = await get(q);
+    if (!snap.exists()) return;
+    const obj = snap.val();
+    const arr = Object.entries(obj).map(([k, v]) => ({ key: k, ...(v || {}) }));
+    arr.sort((a, b) => sampleTimestampMs(a) - sampleTimestampMs(b));
+
+    const labels = arr.map(s => new Date(sampleTimestampMs(s)).toLocaleString());
+    const temps = arr.map(s => (typeof s.temperature === 'number') ? s.temperature : null);
+
+    chartTemp.data.labels = labels.slice();
+    chartTemp.data.datasets[0].data = temps.slice();
+    chartTemp.update();
+
+    renderTable(labels, temps);
+
+  } catch (e) {
+    tableBody.innerHTML = '<tr><td colspan="2">Error loading data</td></tr>';
+  }
+}
+
+// Initial load
+refreshTemperatureData();
+
+// Listen for live updates
+try {
+    const qRealtime = query(REF, limitToLast(HIST_LIMIT));
+    onValue(qRealtime, (snapshot) => {
+        if (!snapshot.exists()) return;
+        const val = snapshot.val();
+        const arr = Object.values(val || {});
+        arr.sort((a, b) => sampleTimestampMs(a) - sampleTimestampMs(b));
+        const labels = arr.map(s => new Date(sampleTimestampMs(s)).toLocaleString());
+        const temps = arr.map(s => (typeof s.temperature === 'number') ? s.temperature : null);
+        chartTemp.data.labels = labels.slice();
+        chartTemp.data.datasets[0].data = temps.slice();
+        chartTemp.update();
+        renderTable(labels, temps);
+    }, (e) => { tableBody.innerHTML = '<tr><td colspan="2">Realtime update error</td></tr>'; });
+} catch (e) {}
+
+</script>
+<!-- Profile + auth logic (unchanged) -->
+  
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
+  import { doc, onSnapshot, getDoc } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
+
+  const topbarUsernameEl = document.getElementById('topbarUsername');
+  const topbarAvatarEl   = document.getElementById('topbarAvatar');
+  const greetingEl       = document.getElementById('greeting');
+
+  // default avatar if none provided
+  const DEFAULT_AVATAR = 'img/undraw_profile.svg';
+
+  let unsubscribeUserDoc = null;
+
+  // helper to append cache-buster to a url (handles Firestore Timestamp or number)
+  function cacheBustedUrl(url, ts) {
+    if (!url) return url;
+    let t = Date.now();
+    try {
+      if (ts) {
+        if (typeof ts.toMillis === 'function') t = ts.toMillis();
+        else if (typeof ts === 'number') t = ts;
+        else if (typeof ts === 'object' && ts._seconds) t = (ts._seconds * 1000); // fallback for some formats
+      }
+    } catch (e) { t = Date.now(); }
+    return url + '?t=' + t;
+  }
+
+  // Create BroadcastChannel once (so we don't recreate on each auth change)
+  const bc = new BroadcastChannel('profile-updates');
+  bc.addEventListener('message', (ev) => {
+    const data = ev.data;
+    const uid = (auth.currentUser && auth.currentUser.uid) || null;
+    if (!data || data.uid !== uid) return;
+
+    if (data.type === 'avatarPreview' && data.preview) {
+      // immediate preview (base64/data URL) — only same-browser tabs will get this
+      if (topbarAvatarEl) topbarAvatarEl.src = data.preview;
+    }
+
+    if (data.type === 'profileUpdate') {
+      const uname = data.username || (topbarUsernameEl ? topbarUsernameEl.textContent : 'User');
+      if (topbarUsernameEl) topbarUsernameEl.textContent = uname;
+      if (greetingEl) greetingEl.textContent = `Hello ${uname} !`;
+    }
+
+    if (data.type === 'avatarFinal' && data.avatarUrl) {
+      if (topbarAvatarEl) topbarAvatarEl.src = cacheBustedUrl(data.avatarUrl, data.avatarUpdatedAt || Date.now());
+    }
+  });
+
+  // small cache for profile to show instantly while Firestore resolves
+  function loadProfileCache(uid) {
+    try {
+      const raw = localStorage.getItem(`sl_profile_${uid}`);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (e) { return null; }
+  }
+  function saveProfileCache(uid, obj) {
+    try { localStorage.setItem(`sl_profile_${uid}`, JSON.stringify(obj)); } catch(e){}
+  }
+
+  onAuthStateChanged(auth, async (user) => {
+    // cleanup previous listener
+    if (unsubscribeUserDoc) {
+      unsubscribeUserDoc();
+      unsubscribeUserDoc = null;
+    }
+
+    if (!user) {
+      console.log('No user signed in — redirecting to login.');
+      location.replace('login.html');
+      return;
+    }
+
+    // 1) immediate UI from auth object (fast)
+    const displayName = user.displayName || '';
+    const email = user.email || '';
+    const fallbackName = email ? email.split('@')[0] : 'User';
+
+    // attempt to load a small cached profile for instant UX
+    const cached = loadProfileCache(user.uid);
+    if (cached) {
+      if (topbarUsernameEl) topbarUsernameEl.textContent = cached.username || displayName || fallbackName;
+      if (topbarAvatarEl) topbarAvatarEl.src = cached.avatarUrl ? cacheBustedUrl(cached.avatarUrl, cached.avatarUpdatedAt) : (user.photoURL || DEFAULT_AVATAR);
+      if (greetingEl) greetingEl.textContent = `Hello ${cached.username || displayName || fallbackName} !`;
+    } else {
+      if (topbarUsernameEl) topbarUsernameEl.textContent = displayName || fallbackName;
+      if (topbarAvatarEl) topbarAvatarEl.src = user.photoURL || DEFAULT_AVATAR;
+      if (greetingEl) greetingEl.textContent = `Hello ${displayName || fallbackName} !`;
+    }
+
+    // 2) attempt to subscribe to users/{uid} for realtime updates (preferred)
+    const userDocRef = doc(db, 'users', user.uid);
+
+    try {
+      const snap = await getDoc(userDocRef);
+      if (snap.exists()) {
+        // save a small cache right away for next page load
+        const data = snap.data();
+        saveProfileCache(user.uid, { username: data.username || displayName || fallbackName, avatarUrl: data.avatarUrl || user.photoURL || null, avatarUpdatedAt: data.avatarUpdatedAt || Date.now() });
+
+        unsubscribeUserDoc = onSnapshot(userDocRef, (snapshot) => {
+          if (!snapshot.exists()) return;
+          const data = snapshot.data();
+
+          const uname = data.username || user.displayName || (user.email ? user.email.split('@')[0] : 'User');
+          if (topbarUsernameEl) topbarUsernameEl.textContent = uname;
+          if (greetingEl) greetingEl.textContent = `Hello ${uname} !`;
+
+          if (data.avatarUrl && topbarAvatarEl) {
+            topbarAvatarEl.src = cacheBustedUrl(data.avatarUrl, data.avatarUpdatedAt);
+          } else if (user.photoURL && topbarAvatarEl) {
+            topbarAvatarEl.src = user.photoURL;
+          } else if (topbarAvatarEl) {
+            topbarAvatarEl.src = DEFAULT_AVATAR;
+          }
+
+          // refresh cache on each update
+          saveProfileCache(user.uid, { username: uname, avatarUrl: data.avatarUrl || user.photoURL || null, avatarUpdatedAt: data.avatarUpdatedAt || Date.now() });
+        }, (err) => {
+          console.error('users/{uid} onSnapshot error:', err);
+        });
+      } else {
+        console.log('users/{uid} doc not found; using auth values.');
+      }
+    } catch (err) {
+      console.error('Error accessing users/{uid}:', err);
+    }
+  });
+</script>
+
+<!--PDF-->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+
+<script>
+document.getElementById('generateReportBtn').addEventListener('click', event => {
+  event.preventDefault();
+
+  const { jsPDF } = window.jspdf;
+  if (!jsPDF) return alert("jsPDF library not loaded");
+
+  const doc = new jsPDF();
+  const margin = 10;
+  let y = margin;
+
+  const now = new Date();
+
+  // Header
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text("SmartLux Night Light - Temperature Report", margin, y);
+  y += 15;
+
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Report generated on: ${now.toLocaleString()}`, margin, y);
+  y += 15;
+
+  // Prepare table data from chart
+  let labels = (window.chartTemp?.data.labels || []).slice().reverse(); // reverse order
+  let temps = (window.chartTemp?.data.datasets[0].data || []).slice().reverse();  // reverse order
+
+  const rowCount = Math.min(labels.length, 50);
+  const rows = [];
+  for (let i = 0; i < rowCount; i++) {
+    let label = labels[i];
+    let tempValue = (temps[i] !== null && temps[i] !== undefined) ? temps[i].toFixed(2) : "N/A";
+    rows.push([label, tempValue]);
+  }
+
+  // Add table using autoTable
+  doc.autoTable({
+    startY: y,
+    head: [['Timestamp', 'Temperature (°C)']],
+    body: rows,
+    theme: 'grid',
+    headStyles: { fillColor: [255, 0, 0]  },
+    styles: { fontSize: 10 },
+    margin: { left: margin, right: margin },
+    didDrawPage: (data) => {
+      y = data.cursor.y + 10;
+    }
+  });
+
+  doc.save(`SmartLux_Temperature_Report_${now.toISOString()}.pdf`);
+});
+
+</script>
+
+
+
+
+</body>
+</html>

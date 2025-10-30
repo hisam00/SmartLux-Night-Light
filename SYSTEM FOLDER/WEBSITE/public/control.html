@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta name="description" content="" />
+    <meta name="author" content="" />
+    <title>SmartLux Night Light - User Dashboard</title>
+    <!-- Custom fonts for this template-->
+    <link href="vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css" />
+    <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i"
+        rel="stylesheet" />
+    <!-- Custom styles for this template-->
+    <link href="css/sb-admin-2.min.css" rel="stylesheet" />
+    
+    <style>
+
+.sidebar-logo-img {
+    width: 60px;
+    height: auto;
+    margin-right: 0px; /* Decrease to bring text closer */
+    margin-top: 15px;
+    margin-left: 0px;
+    
+}
+
+.sidebar-brand-text {
+    font-size: 12px; /* Smaller text */
+    margin-left: 0;  /* Ensure no left margin */
+    margin-right: 18px;
+}
+
+</style>
+    
+    
+</head>
+<body id="page-top">
+    <!-- Page Wrapper -->
+    <div id="wrapper">
+        <!-- Sidebar -->
+        <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
+            
+            	<!-- Sidebar - Brand -->
+           <a class="sidebar-brand d-flex align-items-center justify-content-center" href="dashboard.html">
+            <img src="img/LOGONT.png" alt="Logo" class="sidebar-logo-img" />
+            <div class="sidebar-brand-text" style="font-size:15px;">SMARTLUX NIGHT LIGHT</div>
+            </a>
+            
+            
+            <!-- Divider -->
+            <hr class="sidebar-divider my-0" />
+            <!-- Nav Item - Dashboard -->
+            <li class="nav-item">
+                <a class="nav-link" href="dashboard.html">
+                    <i class="fas fa-fw fa-tachometer-alt"></i>
+                    <span>Dashboard</span></a
+                >
+            </li>
+			
+			<hr class="sidebar-divider my-0" />
+			 <!-- Nav Item - Control -->
+			<li class="nav-item">
+				<a class="nav-link" href="temperature.html">
+					<i class="fas fa-fw fa-solid fa-temperature-low"></i>
+					<span>Temperature</span>
+				</a>
+			</li>
+			<hr class="sidebar-divider my-0" />
+			 <!-- Nav Item - Control -->
+			<li class="nav-item">
+				<a class="nav-link" href="humidity.html">
+					<i class="fas fa-fw fa-solid fa-tint"></i>
+					<span>Humidity</span>
+				</a>
+			</li>
+			<hr class="sidebar-divider my-0" />
+			 <!-- Nav Item - Control -->
+			<li class="nav-item">
+				<a class="nav-link" href="motion.html">
+					<i class="fas fa-fw fa-solid fa-running"></i>
+					<span>Motion</span>
+				</a>
+			</li>
+			<hr class="sidebar-divider my-0" />
+			 <!-- Nav Item - Control -->
+			<li class="nav-item">
+				<a class="nav-link" href="light.html">
+					<i class="fas fa-fw fa-solid fa-lightbulb"></i>
+					<span>Light</span>
+				</a>
+			</li>
+			<hr class="sidebar-divider my-0" />
+			 <!-- Nav Item - Control -->
+			<li class="nav-item active">
+				<a class="nav-link" href="control.html">
+					<i class="fas fa-fw fa-cogs"></i>
+					<span>Light Control</span>
+				</a>
+			</li>
+
+
+            <!-- Divider -->
+            <hr class="sidebar-divider d-none d-md-block" />
+            <!-- Sidebar Toggler (Sidebar) -->
+            <div class="text-center d-none d-md-inline">
+                <button class="rounded-circle border-0" id="sidebarToggle"></button>
+            </div>
+        </ul>
+        <!-- End of Sidebar -->
+        <!-- Content Wrapper -->
+        <div id="content-wrapper" class="d-flex flex-column">
+            <!-- Main Content -->
+            <div id="content">
+                <!-- Topbar -->
+                <nav
+                    class="navbar navbar-expand navbar-light bg-white topbar mb-4 static-top shadow"
+                >
+                    <!-- Sidebar Toggle (Topbar) -->
+                    <button
+                        id="sidebarToggleTop"
+                        class="btn btn-link d-md-none rounded-circle mr-3"
+                    >
+                        <i class="fa fa-bars"></i>
+                    </button>
+
+                    <!-- Topbar Navbar -->
+                    <ul class="navbar-nav ml-auto">
+                        <!-- Nav Item - Search Dropdown (Visible Only XS) -->
+                        <li class="nav-item dropdown no-arrow d-sm-none">
+                            <a
+                                class="nav-link dropdown-toggle"
+                                href="#"
+                                id="searchDropdown"
+                                role="button"
+                                data-toggle="dropdown"
+                                aria-haspopup="true"
+                                aria-expanded="false"
+                                ><i class="fas fa-search fa-fw"></i
+                            ></a>
+                            <!-- Dropdown - Messages -->
+                            <div
+                                class="dropdown-menu dropdown-menu-right p-3 shadow animated--grow-in"
+                                aria-labelledby="searchDropdown"
+                            >
+                                <form class="form-inline mr-auto w-100 navbar-search">
+                                    <div class="input-group">
+                                        <input
+                                            type="text"
+                                            class="form-control bg-light border-0 small"
+                                            placeholder="Search for..."
+                                            aria-label="Search"
+                                            aria-describedby="basic-addon2"
+                                        />
+                                        <div class="input-group-append">
+                                            <button class="btn btn-primary" type="button">
+                                                <i class="fas fa-search fa-sm"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </li>
+
+                        
+
+                        <!-- Nav Item - User Information -->
+                        <div class="topbar-divider d-none d-sm-block"></div>
+                        <!-- Nav Item - User Information -->
+                        <li class="nav-item dropdown no-arrow">
+                          <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-toggle="dropdown"
+                             aria-haspopup="true" aria-expanded="false">
+                            <!-- give this span an id so we can update it -->
+                            <span id="topbarUsername" class="mr-2 d-none d-lg-inline text-gray-600 small">First User</span>
+                            <!-- give this img an id so we can update it -->
+                            <img id="topbarAvatar" class="img-profile rounded-circle" src="img/undraw_profile.svg" />
+                          </a>
+                            <!-- Dropdown - User Information -->
+                            <div
+                                class="dropdown-menu dropdown-menu-right shadow animated--grow-in"
+                                aria-labelledby="userDropdown"
+                            >
+                                <a class="dropdown-item" href="profile.html">
+                                    <i
+                                        class="fas fa-user fa-sm fa-fw mr-2 text-gray-400"
+                                    ></i>
+                                    Profile
+                                </a>
+
+                                <div class="dropdown-divider"></div>
+                                <a
+                                    class="dropdown-item"
+                                    href="#"
+                                    data-toggle="modal"
+                                    data-target="#logoutModal"
+                                >
+                                    <i
+                                        class="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-gray-400"
+                                    ></i>
+                                    Logout
+                                </a>
+                            </div>
+                        </li>
+                    </ul>
+                </nav>
+                <!-- End of Topbar -->
+
+      <!-- Begin Page Content -->
+      <div class="container-fluid">
+        <h1 class="h3 mb-4 text-gray-800">Light Control Panel</h1>
+        <div class="control-buttons">
+          
+          <button id="btnLight" class="btn btn-primary">Light</button>
+        </div>
+
+        <div class="mb-3 mt-4">
+			<label for="inputMotionUrl" class="form-label">Motion URL:</label>
+				<input type="text" id="inputMotionUrl" class="form-control" placeholder="Enter motion URL" />
+		</div>
+		
+		<div class="mb-3 mt-4">
+			<label for="inputTempUrl" class="form-label">Temperature URL:</label>
+				<input type="text" id="inputTempUrl" class="form-control" placeholder="Enter temperature URL" />
+		</div>
+
+      <!-- /.container-fluid -->
+	                      <!-- Logout Modal -->
+                    <div
+                        class="modal fade"
+                        id="logoutModal"
+                        tabindex="-1"
+                        role="dialog"
+                        aria-labelledby="exampleModalLabel"
+                        aria-hidden="true"
+                    >
+                        <div class="modal-dialog" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="exampleModalLabel">
+                                        Ready to Leave?
+                                    </h5>
+                                    <button
+                                        class="close"
+                                        type="button"
+                                        data-dismiss="modal"
+                                        aria-label="Close"
+                                    >
+                                        <span aria-hidden="true">×</span>
+                                    </button>
+                                </div>
+                                <div class="modal-body">
+                                    Select "Logout" below if you are ready to end your current
+                                    session.
+                                </div>
+                                <div class="modal-footer">
+                                    <button
+                                        class="btn btn-secondary"
+                                        type="button"
+                                        data-dismiss="modal"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <a class="btn btn-primary" href="login.html">Logout</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Bootstrap core JavaScript-->
+
+<script src="vendor/jquery/jquery.min.js"></script>
+<script src="vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="vendor/jquery-easing/jquery.easing.min.js"></script>
+<script src="js/sb-admin-2.min.js"></script>
+
+<!-- Control + user-subscription binding logic -->
+<script type="module">
+import { rtdb } from './firebase-config.js';
+import { ref, onValue, get, set } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js";
+import { auth } from './firebase-config.js';
+
+// API base: default to same host, port 3000 (adjust if your server is hosted elsewhere)
+const API_BASE = "https://smartlux-night-light-backend.onrender.com";
+
+const DEVICE_ID = "device01";
+const LED_CONTROL_PATH = `devices/${DEVICE_ID}/control/led`;
+
+const btnLight = document.getElementById('btnLight');
+const inputMotionUrl = document.getElementById('inputMotionUrl');
+const inputTempUrl = document.getElementById('inputTempUrl');
+
+let lightValue = null;
+let cooldown = false;
+
+// Track subscription IDs for this user (null if not created yet)
+let mySubIdMotion = null;
+let mySubIdTemp = null;
+
+// simple debounce utility
+function debounce(fn, wait){
+  let t = null;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(()=> fn(...args), wait);
+  };
+}
+
+// --- API helpers that use Firebase ID token ---
+async function getIdToken() {
+  const user = auth.currentUser;
+  if (!user) throw new Error('User not signed in');
+  return await user.getIdToken();
+}
+
+async function apiRequest(path, method='GET', body=null) {
+  const token = await getIdToken();
+  const res = await fetch(API_BASE + path, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + token
+    },
+    body: body ? JSON.stringify(body) : null,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(()=>null);
+    throw new Error(text || `${res.status} ${res.statusText}`);
+  }
+  return await res.json();
+}
+
+// Update input UI (no overwrite if user is actively editing)
+function safeSetInput(inputEl, value) {
+  if (!inputEl) return;
+  // if element is focused, don't clobber the user typing
+  if (document.activeElement === inputEl) return;
+  inputEl.value = value || '';
+}
+
+// Load this user's subscription(s) for the device and populate inputs
+async function loadMySubscriptions() {
+  try {
+    // GET /api/webhooks/:deviceId returns owner-filtered entries for non-admins
+    const data = await apiRequest(`/api/webhooks/${DEVICE_ID}`, 'GET');
+    // prefer first motion / first temperature entry if present
+    if (Array.isArray(data.motion) && data.motion.length > 0) {
+      mySubIdMotion = data.motion[0].id;
+      safeSetInput(inputMotionUrl, data.motion[0].url || '');
+    } else {
+      mySubIdMotion = null;
+      safeSetInput(inputMotionUrl, '');
+    }
+
+    if (Array.isArray(data.temperature) && data.temperature.length > 0) {
+      mySubIdTemp = data.temperature[0].id;
+      safeSetInput(inputTempUrl, data.temperature[0].url || '');
+    } else {
+      mySubIdTemp = null;
+      safeSetInput(inputTempUrl, '');
+    }
+  } catch (err) {
+    console.error('Failed to load user subscriptions:', err);
+    // keep fields untouched on error
+  }
+}
+
+// Save (create or update) user's subscription for a given event
+async function saveMySubscription(eventKey, url) {
+  try {
+    if (!url || url.trim().length === 0) {
+      // If user cleared the field, optionally delete subscription
+      // Here we do DELETE if a sub exists; otherwise do nothing
+      if (eventKey === 'motion' && mySubIdMotion) {
+        await apiRequest(`/api/webhooks/${DEVICE_ID}/${encodeURIComponent(mySubIdMotion)}`, 'DELETE');
+        mySubIdMotion = null;
+      } else if (eventKey === 'temperature' && mySubIdTemp) {
+        await apiRequest(`/api/webhooks/${DEVICE_ID}/${encodeURIComponent(mySubIdTemp)}`, 'DELETE');
+        mySubIdTemp = null;
+      }
+      return;
+    }
+
+    if (eventKey === 'motion') {
+      if (mySubIdMotion) {
+        // PATCH existing
+        await apiRequest(`/api/webhooks/${DEVICE_ID}/${encodeURIComponent(mySubIdMotion)}`, 'PATCH', { url });
+      } else {
+        // POST new subscription
+        const res = await apiRequest(`/api/webhooks/${DEVICE_ID}`, 'POST', { event: 'motion', url });
+        if (res && res.id) mySubIdMotion = res.id;
+      }
+    } else { // temperature
+      if (mySubIdTemp) {
+        await apiRequest(`/api/webhooks/${DEVICE_ID}/${encodeURIComponent(mySubIdTemp)}`, 'PATCH', { url });
+      } else {
+        const res = await apiRequest(`/api/webhooks/${DEVICE_ID}`, 'POST', { event: 'temperature', url });
+        if (res && res.id) mySubIdTemp = res.id;
+      }
+    }
+  } catch (err) {
+    console.error('Failed to save subscription:', err);
+    // optionally alert user
+    alert('Failed to save your URL: ' + (err.message || err));
+  }
+}
+
+// debounced savers
+const debouncedSaveMotion = debounce(()=> saveMySubscription('motion', inputMotionUrl.value.trim()), 700);
+const debouncedSaveTemp   = debounce(()=> saveMySubscription('temperature', inputTempUrl.value.trim()), 700);
+
+// Wire input changes to save to user's subscription (no extra buttons)
+inputMotionUrl.addEventListener('input', () => {
+  debouncedSaveMotion();
+});
+inputTempUrl.addEventListener('input', () => {
+  debouncedSaveTemp();
+});
+
+// ------------------------------------------------------------------
+// Keep LED logic unchanged (realtime RTDB binding for LED control)
+const ledRef = ref(rtdb, LED_CONTROL_PATH);
+function updateLightButton(val) {
+  lightValue = val;
+  btnLight.disabled = false;
+  switch(val) {
+    case 0:
+      btnLight.textContent = "Light OFF";
+      btnLight.className = "btn btn-danger";
+      break;
+    case 1:
+      btnLight.textContent = "Light ON";
+      btnLight.className = "btn btn-success";
+      break;
+    case 2:
+      btnLight.textContent = "Light AUTO";
+      btnLight.className = "btn btn-primary";
+      break;
+    default:
+      btnLight.textContent = "Light Unknown";
+      btnLight.className = "btn btn-secondary";
+      break;
+  }
+}
+onValue(ledRef, (snapshot) => {
+  const val = snapshot.val();
+  if ([0,1,2].includes(val)) {
+    updateLightButton(val);
+    cooldown = false;
+  }
+});
+btnLight.addEventListener('click', async () => {
+  if (cooldown) return;
+  btnLight.disabled = true;
+  try {
+    const snapshot = await get(ledRef);
+    if (!snapshot.exists()) {
+      alert("LED value not found in database.");
+      btnLight.disabled = false;
+      return;
+    }
+    const currentVal = snapshot.val();
+    let nextVal = 0;
+    if (currentVal === 0) nextVal = 1;
+    else if (currentVal === 1) nextVal = 2;
+    else if (currentVal === 2) nextVal = 0;
+    else nextVal = 0;
+
+    await set(ledRef, nextVal);
+
+    cooldown = true;
+    setTimeout(() => {
+      cooldown = false;
+      btnLight.disabled = false;
+    }, 3000);
+  } catch (error) {
+    alert("Failed to update LED state: " + error.message);
+    btnLight.disabled = false;
+    cooldown = false;
+  }
+});
+// ------------------------------------------------------------------
+
+// NOTE: we purposely do NOT bind the motion/temp inputs to RTDB device-level fields any more.
+// Instead they represent the *current user's* subscription (stored via the backend in Firestore).
+
+// Load user subscriptions once user is signed in (and whenever auth changes)
+auth.onAuthStateChanged(user => {
+  if (user) {
+    // small delay to allow token to be fresh
+    setTimeout(() => {
+      loadMySubscriptions();
+    }, 200);
+  } else {
+    // no user => clear inputs and subIds
+    inputMotionUrl.value = '';
+    inputTempUrl.value = '';
+    mySubIdMotion = null;
+    mySubIdTemp = null;
+  }
+});
+</script>
+
+<!-- Profile + auth logic (unchanged) -->
+  
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
+  import { doc, onSnapshot, getDoc } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
+
+  const topbarUsernameEl = document.getElementById('topbarUsername');
+  const topbarAvatarEl   = document.getElementById('topbarAvatar');
+  const greetingEl       = document.getElementById('greeting');
+
+  // default avatar if none provided
+  const DEFAULT_AVATAR = 'img/undraw_profile.svg';
+
+  let unsubscribeUserDoc = null;
+
+  // helper to append cache-buster to a url (handles Firestore Timestamp or number)
+  function cacheBustedUrl(url, ts) {
+    if (!url) return url;
+    let t = Date.now();
+    try {
+      if (ts) {
+        if (typeof ts.toMillis === 'function') t = ts.toMillis();
+        else if (typeof ts === 'number') t = ts;
+        else if (typeof ts === 'object' && ts._seconds) t = (ts._seconds * 1000); // fallback for some formats
+      }
+    } catch (e) { t = Date.now(); }
+    return url + '?t=' + t;
+  }
+
+  // Create BroadcastChannel once (so we don't recreate on each auth change)
+  const bc = new BroadcastChannel('profile-updates');
+  bc.addEventListener('message', (ev) => {
+    const data = ev.data;
+    const uid = (auth.currentUser && auth.currentUser.uid) || null;
+    if (!data || data.uid !== uid) return;
+
+    if (data.type === 'avatarPreview' && data.preview) {
+      // immediate preview (base64/data URL) — only same-browser tabs will get this
+      if (topbarAvatarEl) topbarAvatarEl.src = data.preview;
+    }
+
+    if (data.type === 'profileUpdate') {
+      const uname = data.username || (topbarUsernameEl ? topbarUsernameEl.textContent : 'User');
+      if (topbarUsernameEl) topbarUsernameEl.textContent = uname;
+      if (greetingEl) greetingEl.textContent = `Hello ${uname} !`;
+    }
+
+    if (data.type === 'avatarFinal' && data.avatarUrl) {
+      if (topbarAvatarEl) topbarAvatarEl.src = cacheBustedUrl(data.avatarUrl, data.avatarUpdatedAt || Date.now());
+    }
+  });
+
+  // small cache for profile to show instantly while Firestore resolves
+  function loadProfileCache(uid) {
+    try {
+      const raw = localStorage.getItem(`sl_profile_${uid}`);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (e) { return null; }
+  }
+  function saveProfileCache(uid, obj) {
+    try { localStorage.setItem(`sl_profile_${uid}`, JSON.stringify(obj)); } catch(e){}
+  }
+
+  onAuthStateChanged(auth, async (user) => {
+    // cleanup previous listener
+    if (unsubscribeUserDoc) {
+      unsubscribeUserDoc();
+      unsubscribeUserDoc = null;
+    }
+
+    if (!user) {
+      console.log('No user signed in — redirecting to login.');
+      location.replace('login.html');
+      return;
+    }
+
+    // 1) immediate UI from auth object (fast)
+    const displayName = user.displayName || '';
+    const email = user.email || '';
+    const fallbackName = email ? email.split('@')[0] : 'User';
+
+    // attempt to load a small cached profile for instant UX
+    const cached = loadProfileCache(user.uid);
+    if (cached) {
+      if (topbarUsernameEl) topbarUsernameEl.textContent = cached.username || displayName || fallbackName;
+      if (topbarAvatarEl) topbarAvatarEl.src = cached.avatarUrl ? cacheBustedUrl(cached.avatarUrl, cached.avatarUpdatedAt) : (user.photoURL || DEFAULT_AVATAR);
+      if (greetingEl) greetingEl.textContent = `Hello ${cached.username || displayName || fallbackName} !`;
+    } else {
+      if (topbarUsernameEl) topbarUsernameEl.textContent = displayName || fallbackName;
+      if (topbarAvatarEl) topbarAvatarEl.src = user.photoURL || DEFAULT_AVATAR;
+      if (greetingEl) greetingEl.textContent = `Hello ${displayName || fallbackName} !`;
+    }
+
+    // 2) attempt to subscribe to users/{uid} for realtime updates (preferred)
+    const userDocRef = doc(db, 'users', user.uid);
+
+    try {
+      const snap = await getDoc(userDocRef);
+      if (snap.exists()) {
+        // save a small cache right away for next page load
+        const data = snap.data();
+        saveProfileCache(user.uid, { username: data.username || displayName || fallbackName, avatarUrl: data.avatarUrl || user.photoURL || null, avatarUpdatedAt: data.avatarUpdatedAt || Date.now() });
+
+        unsubscribeUserDoc = onSnapshot(userDocRef, (snapshot) => {
+          if (!snapshot.exists()) return;
+          const data = snapshot.data();
+
+          const uname = data.username || user.displayName || (user.email ? user.email.split('@')[0] : 'User');
+          if (topbarUsernameEl) topbarUsernameEl.textContent = uname;
+          if (greetingEl) greetingEl.textContent = `Hello ${uname} !`;
+
+          if (data.avatarUrl && topbarAvatarEl) {
+            topbarAvatarEl.src = cacheBustedUrl(data.avatarUrl, data.avatarUpdatedAt);
+          } else if (user.photoURL && topbarAvatarEl) {
+            topbarAvatarEl.src = user.photoURL;
+          } else if (topbarAvatarEl) {
+            topbarAvatarEl.src = DEFAULT_AVATAR;
+          }
+
+          // refresh cache on each update
+          saveProfileCache(user.uid, { username: uname, avatarUrl: data.avatarUrl || user.photoURL || null, avatarUpdatedAt: data.avatarUpdatedAt || Date.now() });
+        }, (err) => {
+          console.error('users/{uid} onSnapshot error:', err);
+        });
+      } else {
+        console.log('users/{uid} doc not found; using auth values.');
+      }
+    } catch (err) {
+      console.error('Error accessing users/{uid}:', err);
+    }
+  });
+</script>
+
+</body>
+</html>

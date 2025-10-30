@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SmartLux Night Light - Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="vendor/fontawesome-free/css/all.min.css" rel="stylesheet" />
+  <link href="css/sb-admin-2.min.css" rel="stylesheet" />
+  <style>
+    body {
+      background: linear-gradient(120deg, #2096ff 0%, #05ffa3 100%);
+      font-family: 'Poppins', sans-serif;
+    }
+    .container-profile {
+      max-width: 480px;
+      margin: 3rem auto;
+      background: #fff;
+      border-radius: 15px;
+      box-shadow: 0 8px 32px rgba(32, 150, 255, 0.12), 0 2px 4px rgba(5, 255, 163, 0.15);
+      padding: 2.5rem 2.5rem 3rem;
+      position: relative;
+    }
+    .profile-header {
+      text-align: center;
+      margin-bottom: 1.8rem;
+      position: relative;
+    }
+    .avatar {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      margin-bottom: 0.5em;
+      object-fit: cover;
+      box-shadow: 0 2px 16px rgba(32,150,255,0.2);
+      cursor: pointer;
+      border: 3px solid #2096ff;
+      transition: box-shadow 0.3s ease;
+    }
+    .avatar:hover {
+      box-shadow: 0 0 18px 6px #05ffa3;
+    }
+    .profile-header h2 {
+      font-size: 1.8rem;
+      font-weight: 600;
+      color: #2096ff;
+      margin-bottom: 0.15em;
+    }
+    .profile-form label {
+      font-weight: 500;
+      color: #107978;
+      margin-bottom: 0.25em;
+      display: block;
+    }
+    .profile-form .form-control[readonly] {
+      background-color: #f4f8fa;
+      color: #555;
+      cursor: default;
+    }
+    .profile-form .form-row {
+      margin-bottom: 1.15rem;
+      position: relative;
+    }
+    .profile-btn-group {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 0.25rem;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .btn {
+      padding: 0.55rem 1.5rem;
+      border-radius: 25px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      border: none;
+      cursor: pointer;
+      background: linear-gradient(120deg, #2096ff 0%, #05ffa3 100%);
+      color: #fff;
+      transition: box-shadow 0.3s ease, background 0.3s ease, transform 0.15s ease;
+      user-select: none;
+      min-width: 140px;
+      text-align: center;
+      box-shadow: 0 5px 15px rgba(32, 150, 255, 0.25);
+      border: 1.5px solid transparent;
+      display: inline-block;
+    }
+    .btn:hover {
+      background: linear-gradient(120deg, #05ffa3 0%, #2096ff 100%);
+      box-shadow: 0 8px 20px rgba(5, 255, 163, 0.4);
+      transform: scale(1.05);
+    }
+    .btn:active {
+      transform: scale(0.98);
+    }
+    .btn-secondary {
+      background: transparent;
+      border: 1.5px solid #2096ff;
+      color: #2096ff;
+      min-width: 140px;
+    }
+    .btn-secondary:hover {
+      background: #2096ff;
+      color: #fff;
+      box-shadow: 0 8px 18px rgba(32, 150, 255, 0.5);
+    }
+    .input-file-label {
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #2096ff;
+      color: white;
+      padding: 10px 18px;
+      border-radius: 25px;
+      font-weight: 600;
+      box-shadow: 0 5px 15px rgba(32, 150, 255, 0.25);
+      user-select: none;
+      border: none;
+      transition: box-shadow 0.3s ease, background 0.3s ease;
+    }
+    .input-file-label:hover {
+      background: #05ffa3;
+      box-shadow: 0 8px 20px rgba(5, 255, 163, 0.4);
+    }
+    .input-file-label:active {
+      transform: scale(0.98);
+    }
+    input[type="file"] {
+      display: none;
+    }
+    @media (max-width: 600px) {
+      .container-profile {
+        padding: 1.5rem 1rem 2rem;
+      }
+      .btn, .btn-secondary, .input-file-label {
+        min-width: 100%;
+        justify-content: center;
+      }
+      .profile-btn-group {
+        flex-direction: column;
+        gap: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container-profile" role="main" aria-label="User profile">
+    <div class="profile-header">
+      <img
+        src="img/undraw_profile.svg"
+        alt="Profile Avatar"
+        class="avatar"
+        id="profileAvatar"
+        title="Click to upload new profile picture"
+      />
+      <input type="file" id="fileInput" accept="image/*" aria-label="Upload profile picture"/>
+      <h2>Profile</h2>
+      <p style="color:#555; font-size:1rem;">Manage your SMARTLUX NIGHT LIGHT account.</p>
+    </div>
+    <form class="profile-form" id="profileForm" novalidate>
+      <div class="form-row">
+        <label for="username">Username</label>
+        <input type="text" class="form-control" id="username" value="" autocomplete="username" />
+      </div>
+      <div class="form-row">
+        <label for="firstName">First Name</label>
+        <input type="text" class="form-control" id="firstName" value="" autocomplete="given-name" />
+      </div>
+      <div class="form-row">
+        <label for="lastName">Last Name</label>
+        <input type="text" class="form-control" id="lastName" value="" autocomplete="family-name" />
+      </div>
+      <div class="form-row profile-btn-group" style="align-items:flex-end;">
+        <div style="flex:1; min-width:180px;">
+          <label for="password">Password</label>
+          <input type="password" class="form-control" id="password" value="***\****\*" readonly autocomplete="current-password" />
+        </div>
+        <button type="button" class="btn btn-secondary" onclick="changePassword()" aria-label="Change password">
+          <i class="fas fa-key"></i> Change Password
+        </button>
+      </div>
+      <div class="form-row profile-btn-group" style="align-items:flex-end;">
+        <div style="flex:1; min-width:180px;">
+          <label for="email">Email Address</label>
+          <input type="email" class="form-control" id="email" value="" readonly autocomplete="email" />
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <button id="verifyBtn" type="button" class="btn btn-secondary" aria-label="Verify email address">
+            <i class="fas fa-envelope"></i> Verify Email
+          </button>
+          <button id="checkVerifyBtn" type="button" class="btn btn-secondary" aria-label="Check verification status">
+            <i class="fas fa-check-circle"></i> I verified — Check now
+          </button>
+          <div id="verifyStatus" style="font-size:0.9rem; color:#107978; margin-top:6px;"></div>
+        </div>
+      </div>
+      <div class="form-row" style="margin-top:36px;">
+        <button type="submit" class="btn" >Save Changes</button>
+      </div>
+      <div class="form-row profile-btn-group" style="margin-top: 20px;">
+        <button type="button" class="btn" id="goDashboardBtn">Go to dashboard</button>
+      </div>
+    </form>
+  </div>
+  
+
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import {
+    onAuthStateChanged,
+    sendEmailVerification,
+    sendPasswordResetEmail,
+    updateProfile
+  } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
+  import {
+    doc,
+    getDoc,
+    setDoc,
+    updateDoc,
+    onSnapshot,
+    setLogLevel
+  } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
+
+  // Enable Firestore SDK debug logging
+  setLogLevel('debug');
+
+  // Cloudinary config — replace with your values
+  const CLOUDINARY_UPLOAD_PRESET = 'unsigned_preset'; // your unsigned preset name
+  const CLOUDINARY_CLOUD_NAME = 'ddcoqy5xo';
+
+  // DOM elements
+  const avatarEl = document.getElementById('profileAvatar');
+  const fileInput = document.getElementById('fileInput');
+  const usernameInput = document.getElementById('username');
+  const firstNameInput = document.getElementById('firstName');
+  const lastNameInput = document.getElementById('lastName');
+  const emailInput = document.getElementById('email');
+  const passwordInput = document.getElementById('password');
+  const profileForm = document.getElementById('profileForm');
+  const verifyBtn = document.getElementById('verifyBtn');
+  const checkVerifyBtn = document.getElementById('checkVerifyBtn');
+  const verifyStatus = document.getElementById('verifyStatus');
+  let currentUid = null;
+  let userDocUnsubscribe = null;
+  let fieldFocus = {};
+
+  // Prevent overwriting inputs while typing
+  ['username','firstName','lastName'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('focus', () => fieldFocus[id] = true);
+    el.addEventListener('blur', () => { fieldFocus[id] = false; });
+  });
+
+  // Upload file to Cloudinary
+  async function uploadToCloudinary(file) {
+    const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/upload`;
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData
+    });
+    if (!response.ok) {
+      const errData = await response.json();
+      throw new Error(errData.error?.message || 'Cloudinary upload failed');
+    }
+    const data = await response.json();
+    return data.secure_url;
+  }
+
+  // Listen for auth state
+  onAuthStateChanged(auth, async (user) => {
+    if (userDocUnsubscribe) {
+      userDocUnsubscribe();
+      userDocUnsubscribe = null;
+    }
+    if (!user) {
+      location.replace('login.html');
+      return;
+    }
+    currentUid = user.uid;
+    emailInput.value = user.email || '';
+
+    if (user.photoURL) {
+      avatarEl.src = user.photoURL + '?t=' + Date.now();
+    }
+
+    updateVerifyUI(user);
+
+    const userDocRef = doc(db, 'users', currentUid);
+
+    userDocUnsubscribe = onSnapshot(userDocRef, (snap) => {
+      if (!snap.exists()) return;
+      const data = snap.data();
+
+      if (data.username && !fieldFocus['username']) usernameInput.value = data.username;
+      if (data.firstName && !fieldFocus['firstName']) firstNameInput.value = data.firstName;
+      if (data.lastName && !fieldFocus['lastName']) lastNameInput.value = data.lastName;
+
+      if (data.avatarUrl) {
+        avatarEl.src = data.avatarUrl + '?t=' + Date.now();
+        console.log('Avatar updated from Firestore:', avatarEl.src);
+      } else if (user.photoURL) {
+        avatarEl.src = user.photoURL + '?t=' + Date.now();
+      }
+    });
+
+    try {
+      const snap = await getDoc(userDocRef);
+      if (!snap.exists()) {
+        await setDoc(userDocRef, {
+          email: user.email || '',
+          username: user.displayName || '',
+          firstName: '',
+          lastName: '',
+          createdAt: new Date()
+        }, { merge: true });
+        console.log('User document created in Firestore');
+      }
+    } catch (err) {
+      console.error('Error creating user doc:', err);
+      alert('Error initializing user profile: ' + err.message);
+    }
+  });
+
+  // Update email verification UI
+  function updateVerifyUI(user) {
+    if (!user) {
+      verifyBtn.style.display = 'none';
+      checkVerifyBtn.style.display = 'none';
+      verifyStatus.textContent = '';
+      return;
+    }
+    if (user.emailVerified) {
+      verifyBtn.style.display = 'none';
+      checkVerifyBtn.style.display = 'none';
+      verifyStatus.textContent = 'Email verified ✔️';
+    } else {
+      verifyBtn.style.display = '';
+      checkVerifyBtn.style.display = '';
+      verifyStatus.textContent = 'Email not verified. Please check your inbox.';
+    }
+  }
+
+  // Open file picker on avatar click
+  avatarEl.addEventListener('click', () => fileInput.click());
+
+  // Handle file selection and upload to Cloudinary
+  fileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Please choose an image file.');
+      return;
+    }
+    try {
+      // Preview locally
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        avatarEl.src = ev.target.result;
+        console.log('Local preview updated');
+      };
+      reader.readAsDataURL(file);
+
+      // Upload to Cloudinary
+      const url = await uploadToCloudinary(file);
+      console.log('Cloudinary URL:', url);
+
+      // Save URL to Firestore
+      const userDocRef = doc(db, 'users', currentUid);
+      await setDoc(userDocRef, { avatarUrl: url }, { merge: true });
+      console.log('Firestore updated with avatarUrl:', url);
+
+      // Update Firebase Auth user profile photoURL
+      await updateProfile(auth.currentUser, { photoURL: url });
+      console.log('Firebase Auth user profile photoURL updated');
+
+      // Cache bust avatar image
+      avatarEl.src = url + '?t=' + Date.now();
+
+      //alert('Profile image uploaded successfully!');
+    } catch (err) {
+      console.error('Upload error:', err);
+      alert('Failed to upload profile image: ' + err.message);
+    }
+  });
+
+  // Save profile info changes
+  profileForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!currentUid) {
+      alert('No user signed in');
+      return;
+    }
+    try {
+      const userDocRef = doc(db, 'users', currentUid);
+      await updateDoc(userDocRef, {
+        username: usernameInput.value.trim(),
+        firstName: firstNameInput.value.trim(),
+        lastName: lastNameInput.value.trim(),
+        updatedAt: new Date(),
+      });
+      alert('Profile changes saved successfully!');
+    } catch (err) {
+      console.warn('updateDoc failed, trying setDoc:', err);
+      try {
+        await setDoc(doc(db, 'users', currentUid), {
+          username: usernameInput.value.trim(),
+          firstName: firstNameInput.value.trim(),
+          lastName: lastNameInput.value.trim(),
+          updatedAt: new Date(),
+        }, { merge: true });
+        alert('Profile created and saved!');
+      } catch (err2) {
+        console.error('Saving failed:', err2);
+        alert('Could not save profile: ' + err2.message);
+      }
+    }
+  });
+
+  // Email verification handlers
+  verifyBtn.addEventListener('click', async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('No user signed in');
+      await sendEmailVerification(user);
+      alert('Verification email sent. Check inbox/spam.');
+    } catch (err) {
+      console.error('Verification send failed:', err);
+      alert('Could not send verification: ' + err.message);
+    }
+  });
+
+  checkVerifyBtn.addEventListener('click', async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('No user signed in');
+      await user.reload();
+      updateVerifyUI(auth.currentUser);
+      if (auth.currentUser.emailVerified) {
+        alert('Email verified. Thank you!');
+      } else {
+        alert('Email still not verified. Check your inbox and click "Check now" again.');
+      }
+    } catch (err) {
+      console.error('Verification check failed:', err);
+      alert('Could not check verification: ' + err.message);
+    }
+  });
+
+  // Password reset handler
+  window.changePassword = async function changePassword() {
+    try {
+      const user = auth.currentUser;
+      const email = user && user.email;
+      if (!email) throw new Error('No email available for reset');
+      await sendPasswordResetEmail(auth, email);
+      alert('Password reset email sent to ' + email);
+    } catch (err) {
+      console.error('sendPasswordResetEmail failed:', err);
+      alert('Could not send password reset: ' + err.message);
+    }
+  };
+
+  // Go to dashboard logic
+  document.getElementById('goDashboardBtn').addEventListener('click', async () => {
+    if (!currentUid) {
+      alert('No user signed in.');
+      return;
+    }
+    try {
+      const userDocRef = doc(db, 'users', currentUid);
+      const userDocSnap = await getDoc(userDocRef);
+      if (!userDocSnap.exists()) {
+        alert('User data not found.');
+        return;
+      }
+      const userData = userDocSnap.data();
+      const role = userData.role;
+      if (role === 'admin') {
+        window.location.href = 'dashboardadmin.html';
+      } else {
+        window.location.href = 'dashboard.html';
+      }
+    } catch (error) {
+      console.error('Error retrieving user role:', error);
+      alert('Error retrieving user role. Please try again.');
+    }
+  });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>
