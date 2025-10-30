@@ -22,7 +22,7 @@ const int lightThreshold = 4095;
 const int darkThreshold  = 3700;
 const int maxBrightness  = 100;
 const float coldThreshold  = 22.0;   // both in celcius
-const float hotThreshold   = 33.0;
+const float hotThreshold   = 30.0;
 
 const unsigned long motionTimeout = 60000; // milisecond tips 1 min = 60000 mili
 const unsigned long dhtInterval = 2000;    // ms
