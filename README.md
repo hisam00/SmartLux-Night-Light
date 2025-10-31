@@ -54,8 +54,12 @@ WEBSITE/
     firebase-config.js
     ...
 ```
+## How to Get Started - Easy (Website)
 
-## How to Get Started (Website)
+1. Access Our [Website](https://smartlux-night-light.web.app/) through the link below:
+   - Website Link: https://smartlux-night-light.web.app/
+       
+## How to Get Started - Advance (Website)
 
 1. **Install Mini Anaconda**
 
@@ -96,7 +100,7 @@ WEBSITE/
 6. **Access the Dashboard**
    Open your browser and go to the local server URL (usually http://localhost:8080).
 
-## How to Get Started (Device)
+## How to Get Started - Advance (Device)
 
 1. Assemble the sensors and microcontroller according to your chosen schematic.
 2. Flash the `smartluxnighlight.ino` firmware to your device.
