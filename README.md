@@ -120,7 +120,7 @@ WEBSITE/
   Password: 123456
 
 &nbsp;
-**Staff**
+**User**
 
 - Username: irfan@gmail.com  
   Password: 123456
